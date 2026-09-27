@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Trade = {
@@ -15,9 +22,12 @@ type Trade = {
   risk: number;
   pnl: number;
   created_at?: string;
+  user_id?: string;
 };
 
 export default function Home() {
+  const router = useRouter();
+
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -39,9 +49,30 @@ export default function Home() {
   const [filterMonth, setFilterMonth] = useState("ALL");
 
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [userEmail, setUserEmail] = useState("");
+
+  // =========================================================
+  // AUTH CHECK + LOAD ONLY CURRENT USER'S TRADES
+  // =========================================================
 
   useEffect(() => {
+    let mounted = true;
+
     async function loadTrades() {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      if (!mounted) return;
+
+      setUserEmail(user.email || "");
+
       const { data, error } = await supabase
         .from("trades")
         .select("*")
@@ -49,15 +80,45 @@ export default function Home() {
 
       if (error) {
         console.error("SUPABASE ERROR:", error);
-      } else {
+      } else if (mounted) {
         setTrades(data || []);
       }
 
-      setLoading(false);
+      if (mounted) {
+        setLoading(false);
+      }
     }
 
     loadTrades();
-  }, []);
+
+    // If user logs out somewhere else, send them to login
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace("/login");
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
+
+  // =========================================================
+  // LOGOUT
+  // =========================================================
+
+  async function logout() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  // =========================================================
+  // FILTERED TRADES
+  // =========================================================
 
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
@@ -84,6 +145,10 @@ export default function Home() {
     });
   }, [trades, filterPair, filterType, filterMonth]);
 
+  // =========================================================
+  // ANALYTICS
+  // =========================================================
+
   const totalPnl = filteredTrades.reduce(
     (sum, trade) => sum + Number(trade.pnl),
     0
@@ -104,14 +169,18 @@ export default function Home() {
 
   const averageWin =
     wins.length > 0
-      ? wins.reduce((sum, trade) => sum + Number(trade.pnl), 0) /
-        wins.length
+      ? wins.reduce(
+          (sum, trade) => sum + Number(trade.pnl),
+          0
+        ) / wins.length
       : 0;
 
   const averageLoss =
     losses.length > 0
-      ? losses.reduce((sum, trade) => sum + Number(trade.pnl), 0) /
-        losses.length
+      ? losses.reduce(
+          (sum, trade) => sum + Number(trade.pnl),
+          0
+        ) / losses.length
       : 0;
 
   const grossProfit = wins.reduce(
@@ -120,7 +189,10 @@ export default function Home() {
   );
 
   const grossLoss = Math.abs(
-    losses.reduce((sum, trade) => sum + Number(trade.pnl), 0)
+    losses.reduce(
+      (sum, trade) => sum + Number(trade.pnl),
+      0
+    )
   );
 
   const profitFactor =
@@ -238,6 +310,10 @@ export default function Home() {
     )
   ).sort();
 
+  // =========================================================
+  // R:R CALCULATION
+  // =========================================================
+
   const rr = useMemo(() => {
     const e = Number(entry);
     const s = Number(sl);
@@ -253,32 +329,49 @@ export default function Home() {
     return (rewardDistance / riskDistance).toFixed(2);
   }, [entry, sl, tp]);
 
+  // =========================================================
+  // NAVIGATION
+  // =========================================================
+
   function navigate(section: string) {
     setActiveSection(section);
     setSidebarOpen(false);
 
     if (section === "Dashboard") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     }
 
     if (section === "Analytics") {
       document
         .getElementById("analytics-section")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }
 
     if (section === "Trades") {
       document
         .getElementById("trades-section")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }
 
     if (section === "Settings") {
       document
         .getElementById("settings-section")
-        ?.scrollIntoView({ behavior: "smooth" });
+        ?.scrollIntoView({
+          behavior: "smooth",
+        });
     }
   }
+
+  // =========================================================
+  // CLEAR FORM
+  // =========================================================
 
   function clearForm() {
     setEntry("");
@@ -291,9 +384,31 @@ export default function Home() {
     setEditingId(null);
   }
 
+  // =========================================================
+  // SAVE / UPDATE TRADE
+  // =========================================================
+
   async function saveTrade() {
-    if (!entry || !sl || !tp || !exit || !lot || !risk || !pnl) {
+    if (
+      !entry ||
+      !sl ||
+      !tp ||
+      !exit ||
+      !lot ||
+      !risk ||
+      !pnl
+    ) {
       alert("Please fill all fields");
+      return;
+    }
+
+    // Make sure user is logged in
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login");
       return;
     }
 
@@ -306,6 +421,11 @@ export default function Home() {
       alert("Entry aur SL same nahi ho sakte.");
       return;
     }
+
+    // =====================================================
+    // UPDATE EXISTING TRADE
+    // RLS will allow only user's own trade
+    // =====================================================
 
     if (editingId !== null) {
       const { data, error } = await supabase
@@ -327,7 +447,9 @@ export default function Home() {
 
       if (error) {
         console.error("Update error:", error);
-        alert("Trade update nahi hua.");
+        alert(
+          "Trade update nahi hua. Sirf apne trades edit kar sakte ho."
+        );
         return;
       }
 
@@ -338,9 +460,15 @@ export default function Home() {
       );
 
       clearForm();
+
       alert("Trade updated successfully!");
       return;
     }
+
+    // =====================================================
+    // INSERT NEW TRADE
+    // USER ID IS AUTOMATICALLY SAVED
+    // =====================================================
 
     const { data, error } = await supabase
       .from("trades")
@@ -355,6 +483,9 @@ export default function Home() {
           lot: Number(lot),
           risk: Number(risk),
           pnl: Number(pnl),
+
+          // IMPORTANT
+          user_id: user.id,
         },
       ])
       .select()
@@ -379,6 +510,10 @@ export default function Home() {
     );
   }
 
+  // =========================================================
+  // EDIT TRADE
+  // =========================================================
+
   function editTrade(trade: Trade) {
     setEditingId(trade.id);
     setPair(trade.pair);
@@ -393,8 +528,14 @@ export default function Home() {
 
     document
       .getElementById("trades-section")
-      ?.scrollIntoView({ behavior: "smooth" });
+      ?.scrollIntoView({
+        behavior: "smooth",
+      });
   }
+
+  // =========================================================
+  // DELETE TRADE
+  // =========================================================
 
   async function deleteTrade(id: number) {
     const confirmDelete = confirm(
@@ -403,6 +544,15 @@ export default function Home() {
 
     if (!confirmDelete) return;
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
     const { error } = await supabase
       .from("trades")
       .delete()
@@ -410,7 +560,9 @@ export default function Home() {
 
     if (error) {
       console.error("Delete error:", error);
-      alert("Trade delete nahi hua.");
+      alert(
+        "Trade delete nahi hua. Sirf apne trades delete kar sakte ho."
+      );
       return;
     }
 
@@ -418,6 +570,10 @@ export default function Home() {
       prev.filter((trade) => trade.id !== id)
     );
   }
+
+  // =========================================================
+  // FORMAT MONTH
+  // =========================================================
 
   function formatMonth(month: string) {
     const parts = month.split("-");
@@ -433,10 +589,39 @@ export default function Home() {
     });
   }
 
+  // =========================================================
+  // LOADING SCREEN
+  // =========================================================
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
+
+        <div className="text-center">
+
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center text-3xl shadow-xl shadow-cyan-500/20">
+            📈
+          </div>
+
+          <p className="mt-5 text-slate-400">
+            Loading your journal...
+          </p>
+
+        </div>
+
+      </main>
+    );
+  }
+
+  // =========================================================
+  // MAIN UI
+  // =========================================================
+
   return (
     <main className="min-h-screen bg-[#030712] text-white">
 
       {/* MOBILE HEADER */}
+
       <header className="md:hidden sticky top-0 z-50 bg-[#050914]/90 backdrop-blur-xl border-b border-white/10 px-4 py-3">
 
         <div className="flex items-center justify-between">
@@ -449,6 +634,7 @@ export default function Home() {
           </button>
 
           <div className="text-center">
+
             <p className="font-black text-lg tracking-tight">
               Trade Journal
             </p>
@@ -456,6 +642,7 @@ export default function Home() {
             <p className="text-[9px] text-cyan-400 uppercase tracking-[0.2em]">
               Trading Analytics
             </p>
+
           </div>
 
           <div className="w-11 h-11 rounded-xl bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
@@ -466,7 +653,9 @@ export default function Home() {
 
       </header>
 
+
       {/* OVERLAY */}
+
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -474,7 +663,9 @@ export default function Home() {
         />
       )}
 
+
       {/* SIDEBAR */}
+
       <aside
         className={
           "fixed left-0 top-0 h-screen w-72 bg-[#050914] border-r border-white/10 z-[60] transition-transform duration-300 " +
@@ -485,6 +676,7 @@ export default function Home() {
       >
 
         {/* LOGO */}
+
         <div className="p-6 border-b border-white/10">
 
           <div className="flex items-center gap-3">
@@ -494,6 +686,7 @@ export default function Home() {
             </div>
 
             <div>
+
               <h2 className="font-black text-lg">
                 Trade Journal
               </h2>
@@ -501,13 +694,16 @@ export default function Home() {
               <p className="text-xs text-slate-500">
                 Professional Analytics
               </p>
+
             </div>
 
           </div>
 
         </div>
 
+
         {/* NAVIGATION */}
+
         <div className="p-4">
 
           <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em] font-bold px-3 mb-3">
@@ -557,7 +753,9 @@ export default function Home() {
 
         </div>
 
+
         {/* ACCOUNT CARD */}
+
         <div className="absolute bottom-0 left-0 right-0 p-4">
 
           <div className="rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 p-4">
@@ -565,24 +763,30 @@ export default function Home() {
             <div className="flex items-center gap-3">
 
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-black">
-                T
+                {userEmail
+                  ? userEmail.charAt(0).toUpperCase()
+                  : "T"}
               </div>
 
-              <div>
+              <div className="min-w-0">
+
                 <p className="font-bold text-sm">
                   Trader
                 </p>
 
-                <p className="text-[11px] text-slate-500">
-                  Personal Journal
+                <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
+                  {userEmail || "Personal Journal"}
                 </p>
+
               </div>
 
             </div>
 
+
             <div className="mt-4 pt-3 border-t border-white/10 flex justify-between">
 
               <div>
+
                 <p className="text-[10px] text-slate-600 uppercase">
                   Trades
                 </p>
@@ -590,9 +794,12 @@ export default function Home() {
                 <p className="font-black mt-1">
                   {trades.length}
                 </p>
+
               </div>
 
+
               <div className="text-right">
+
                 <p className="text-[10px] text-slate-600 uppercase">
                   P&L
                 </p>
@@ -608,9 +815,20 @@ export default function Home() {
                   {totalPnl >= 0 ? "+" : ""}
                   {totalPnl.toFixed(2)}
                 </p>
+
               </div>
 
             </div>
+
+
+            {/* LOGOUT */}
+
+            <button
+              onClick={logout}
+              className="w-full mt-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500 hover:text-white transition"
+            >
+              Logout
+            </button>
 
           </div>
 
@@ -618,12 +836,16 @@ export default function Home() {
 
       </aside>
 
+
       {/* MAIN */}
+
       <div className="md:ml-72">
 
         <div className="max-w-[1500px] mx-auto px-4 md:px-8 py-6 md:py-10">
 
+
           {/* TOP HEADER */}
+
           <div
             id="dashboard-section"
             className="hidden md:flex items-center justify-between mb-10"
@@ -651,6 +873,7 @@ export default function Home() {
 
             </div>
 
+
             <div className="flex items-center gap-3">
 
               <div className="px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
@@ -665,12 +888,16 @@ export default function Home() {
 
               </div>
 
+
               <button
                 onClick={() => {
                   setActiveSection("Trades");
+
                   document
                     .getElementById("trades-section")
-                    ?.scrollIntoView({ behavior: "smooth" });
+                    ?.scrollIntoView({
+                      behavior: "smooth",
+                    });
                 }}
                 className="px-5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold shadow-xl shadow-cyan-500/10 hover:scale-[1.02] transition"
               >
@@ -681,7 +908,9 @@ export default function Home() {
 
           </div>
 
+
           {/* MOBILE INTRO */}
+
           <div className="md:hidden mb-6">
 
             <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
@@ -698,12 +927,15 @@ export default function Home() {
 
           </div>
 
+
           {/* FILTERS */}
+
           <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 mb-6 backdrop-blur-xl">
 
             <div className="flex items-center justify-between mb-4">
 
               <div>
+
                 <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
                   Analytics
                 </p>
@@ -711,7 +943,9 @@ export default function Home() {
                 <h2 className="font-bold text-lg mt-1">
                   Performance Filters
                 </h2>
+
               </div>
+
 
               <button
                 onClick={() => {
@@ -726,6 +960,7 @@ export default function Home() {
 
             </div>
 
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 
               <select
@@ -735,6 +970,7 @@ export default function Home() {
                 }
                 className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
               >
+
                 <option value="ALL">
                   All Pairs
                 </option>
@@ -747,6 +983,7 @@ export default function Home() {
 
               </select>
 
+
               <select
                 value={filterType}
                 onChange={(e) =>
@@ -754,6 +991,7 @@ export default function Home() {
                 }
                 className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
               >
+
                 <option value="ALL">
                   BUY + SELL
                 </option>
@@ -768,6 +1006,7 @@ export default function Home() {
 
               </select>
 
+
               <select
                 value={filterMonth}
                 onChange={(e) =>
@@ -775,6 +1014,7 @@ export default function Home() {
                 }
                 className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
               >
+
                 <option value="ALL">
                   All Months
                 </option>
@@ -791,10 +1031,13 @@ export default function Home() {
 
           </div>
 
+
           {/* PRIMARY STATS */}
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
 
             {/* PNL */}
+
             <div className="group rounded-3xl p-5 bg-gradient-to-br from-emerald-500/[0.12] to-white/[0.02] border border-emerald-400/10 hover:border-emerald-400/30 transition">
 
               <div className="flex items-center justify-between">
@@ -827,7 +1070,9 @@ export default function Home() {
 
             </div>
 
+
             {/* WIN RATE */}
+
             <div className="group rounded-3xl p-5 bg-gradient-to-br from-blue-500/[0.12] to-white/[0.02] border border-blue-400/10 hover:border-blue-400/30 transition">
 
               <div className="flex items-center justify-between">
@@ -852,7 +1097,9 @@ export default function Home() {
 
             </div>
 
+
             {/* PROFIT FACTOR */}
+
             <div className="group rounded-3xl p-5 bg-gradient-to-br from-purple-500/[0.12] to-white/[0.02] border border-purple-400/10 hover:border-purple-400/30 transition">
 
               <div className="flex items-center justify-between">
@@ -877,7 +1124,9 @@ export default function Home() {
 
             </div>
 
+
             {/* DRAWDOWN */}
+
             <div className="group rounded-3xl p-5 bg-gradient-to-br from-orange-500/[0.12] to-white/[0.02] border border-orange-400/10 hover:border-orange-400/30 transition">
 
               <div className="flex items-center justify-between">
@@ -904,7 +1153,9 @@ export default function Home() {
 
           </div>
 
+
           {/* SECONDARY STATS */}
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
             <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
@@ -919,6 +1170,7 @@ export default function Home() {
 
             </div>
 
+
             <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
 
               <p className="text-xs text-slate-600 uppercase">
@@ -931,6 +1183,7 @@ export default function Home() {
 
             </div>
 
+
             <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
 
               <p className="text-xs text-slate-600 uppercase">
@@ -942,6 +1195,7 @@ export default function Home() {
               </p>
 
             </div>
+
 
             <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
 
@@ -957,15 +1211,19 @@ export default function Home() {
 
           </div>
 
+
           {/* ANALYTICS */}
+
           <section id="analytics-section">
 
             {/* EQUITY */}
+
             <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-6">
 
               <div className="flex items-start justify-between mb-7">
 
                 <div>
+
                   <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
                     Performance
                   </p>
@@ -977,7 +1235,9 @@ export default function Home() {
                   <p className="text-sm text-slate-600 mt-1">
                     Cumulative trading performance
                   </p>
+
                 </div>
+
 
                 <div className="px-3 py-2 rounded-xl bg-cyan-400/10 text-cyan-400 text-xs font-bold">
                   {filteredTrades.length} Trades
@@ -985,11 +1245,15 @@ export default function Home() {
 
               </div>
 
+
               {equityCurve.length === 0 ? (
+
                 <div className="h-64 flex items-center justify-center rounded-2xl bg-black/10 text-slate-600">
                   No trading data available
                 </div>
+
               ) : (
+
                 <div className="h-64 flex items-end gap-1 overflow-x-auto pb-2">
 
                   {equityCurve.map((item) => {
@@ -1017,6 +1281,7 @@ export default function Home() {
                           item.balance.toFixed(2)
                         }
                       >
+
                         <div
                           className={
                             "w-full rounded-t-md transition-all duration-300 group-hover:opacity-80 " +
@@ -1030,17 +1295,23 @@ export default function Home() {
                               "%",
                           }}
                         />
+
                       </div>
                     );
                   })}
 
                 </div>
+
               )}
 
             </div>
 
+
             {/* WIN LOSS + STREAK */}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+              {/* WIN LOSS */}
 
               <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7">
 
@@ -1055,6 +1326,7 @@ export default function Home() {
                 <p className="text-sm text-slate-600 mt-1 mb-7">
                   Trade outcome distribution
                 </p>
+
 
                 <div className="flex items-center justify-center gap-10">
 
@@ -1088,32 +1360,44 @@ export default function Home() {
 
                   </div>
 
+
                   <div className="space-y-5">
 
                     <div>
+
                       <div className="flex items-center gap-2">
+
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
+
                         <p className="text-sm text-slate-400">
                           Wins
                         </p>
+
                       </div>
 
                       <p className="text-3xl font-black mt-1">
                         {wins.length}
                       </p>
+
                     </div>
 
+
                     <div>
+
                       <div className="flex items-center gap-2">
+
                         <span className="w-2 h-2 rounded-full bg-red-400" />
+
                         <p className="text-sm text-slate-400">
                           Losses
                         </p>
+
                       </div>
 
                       <p className="text-3xl font-black mt-1">
                         {losses.length}
                       </p>
+
                     </div>
 
                   </div>
@@ -1122,7 +1406,9 @@ export default function Home() {
 
               </div>
 
+
               {/* STREAK */}
+
               <div className="rounded-3xl bg-gradient-to-br from-orange-500/[0.08] to-white/[0.02] border border-orange-400/10 p-5 md:p-7">
 
                 <p className="text-xs text-orange-400 font-bold uppercase tracking-widest">
@@ -1137,6 +1423,7 @@ export default function Home() {
                   Latest consecutive results
                 </p>
 
+
                 <div className="mt-8">
 
                   <p className="text-7xl font-black text-orange-400">
@@ -1149,6 +1436,7 @@ export default function Home() {
                       ? " trade"
                       : " trades"}
                   </p>
+
 
                   <div className="mt-7 h-2 bg-white/5 rounded-full overflow-hidden">
 
@@ -1171,7 +1459,9 @@ export default function Home() {
 
             </div>
 
+
             {/* MONTHLY */}
+
             <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-8">
 
               <div className="mb-7">
@@ -1190,11 +1480,15 @@ export default function Home() {
 
               </div>
 
+
               {monthlyPerformance.length === 0 ? (
+
                 <div className="text-center py-10 text-slate-600">
                   No monthly data available
                 </div>
+
               ) : (
+
                 <div className="space-y-5">
 
                   {monthlyPerformance.map((item) => {
@@ -1234,6 +1528,7 @@ export default function Home() {
 
                         </div>
 
+
                         <div className="h-3 bg-white/5 rounded-full overflow-hidden">
 
                           <div
@@ -1257,16 +1552,20 @@ export default function Home() {
                   })}
 
                 </div>
+
               )}
 
             </div>
 
           </section>
 
+
           {/* TRADES */}
+
           <section id="trades-section">
 
             {/* ADD TRADE */}
+
             <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-6">
 
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-7">
@@ -1289,7 +1588,9 @@ export default function Home() {
 
                 </div>
 
+
                 {rr && (
+
                   <div className="px-5 py-4 rounded-2xl bg-cyan-400/10 border border-cyan-400/20">
 
                     <p className="text-[10px] text-slate-500 uppercase tracking-widest">
@@ -1301,11 +1602,14 @@ export default function Home() {
                     </p>
 
                   </div>
+
                 )}
 
               </div>
 
-              {/* BUY SELL */}
+
+              {/* BUY / SELL */}
+
               <div className="grid grid-cols-2 gap-3 mb-5">
 
                 <button
@@ -1319,6 +1623,7 @@ export default function Home() {
                 >
                   ↗ BUY
                 </button>
+
 
                 <button
                   onClick={() => setType("SELL")}
@@ -1334,6 +1639,7 @@ export default function Home() {
 
               </div>
 
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                 {[
@@ -1344,31 +1650,36 @@ export default function Home() {
                   ["Lot Size", lot, setLot],
                   ["Risk", risk, setRisk],
                   ["P&L", pnl, setPnl],
-                ].map(([label, value, setter]) => (
+                ].map(
+                  ([label, value, setter]) => (
 
-                  <div key={String(label)}>
+                    <div key={String(label)}>
 
-                    <label className="text-xs text-slate-500 uppercase tracking-wider">
-                      {String(label)}
-                    </label>
+                      <label className="text-xs text-slate-500 uppercase tracking-wider">
+                        {String(label)}
+                      </label>
 
-                    <input
-                      type="number"
-                      value={String(value)}
-                      onChange={(e) =>
-                        (
-                          setter as React.Dispatch<
-                            React.SetStateAction<string>
-                          >
-                        )(e.target.value)
-                      }
-                      placeholder={String(label)}
-                      className="w-full mt-2 bg-[#080d19] border border-white/10 rounded-xl p-3.5 outline-none focus:border-cyan-400 transition"
-                    />
+                      <input
+                        type="number"
+                        value={String(value)}
+                        onChange={(e) =>
+                          (
+                            setter as Dispatch<
+                              SetStateAction<string>
+                            >
+                          )(e.target.value)
+                        }
+                        placeholder={String(label)}
+                        className="w-full mt-2 bg-[#080d19] border border-white/10 rounded-xl p-3.5 outline-none focus:border-cyan-400 transition"
+                      />
 
-                  </div>
+                    </div>
 
-                ))}
+                  )
+                )}
+
+
+                {/* PAIR */}
 
                 <div>
 
@@ -1383,16 +1694,21 @@ export default function Home() {
                     }
                     className="w-full mt-2 bg-[#080d19] border border-white/10 rounded-xl p-3.5 outline-none focus:border-cyan-400"
                   >
+
                     <option>XAUUSD</option>
                     <option>EURUSD</option>
                     <option>GBPUSD</option>
                     <option>BTCUSD</option>
                     <option>USDJPY</option>
+
                   </select>
 
                 </div>
 
               </div>
+
+
+              {/* SAVE */}
 
               <div className="flex gap-3 mt-6">
 
@@ -1405,20 +1721,25 @@ export default function Home() {
                     : "+ Save Trade"}
                 </button>
 
+
                 {editingId !== null && (
+
                   <button
                     onClick={clearForm}
                     className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 transition"
                   >
                     Cancel
                   </button>
+
                 )}
 
               </div>
 
             </div>
 
+
             {/* HISTORY */}
+
             <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7">
 
               <div className="flex items-center justify-between mb-6">
@@ -1435,26 +1756,28 @@ export default function Home() {
 
                 </div>
 
+
                 <div className="px-3 py-2 rounded-xl bg-white/5 text-xs text-slate-500">
                   {filteredTrades.length} records
                 </div>
 
               </div>
 
-              {loading ? (
-                <div className="text-center py-12 text-slate-600">
-                  Loading trades...
-                </div>
-              ) : filteredTrades.length === 0 ? (
+
+              {filteredTrades.length === 0 ? (
+
                 <div className="text-center py-12 text-slate-600">
                   No trades found.
                 </div>
+
               ) : (
+
                 <div className="overflow-x-auto">
 
                   <table className="w-full text-sm">
 
                     <thead>
+
                       <tr className="border-b border-white/10 text-slate-600">
 
                         <th className="text-left p-3">
@@ -1498,7 +1821,9 @@ export default function Home() {
                         </th>
 
                       </tr>
+
                     </thead>
+
 
                     <tbody>
 
@@ -1512,6 +1837,7 @@ export default function Home() {
                           <td className="p-3 font-black">
                             {trade.pair}
                           </td>
+
 
                           <td className="p-3">
 
@@ -1528,29 +1854,36 @@ export default function Home() {
 
                           </td>
 
+
                           <td className="p-3 text-slate-300">
                             {trade.entry}
                           </td>
+
 
                           <td className="p-3 text-red-400">
                             {trade.sl}
                           </td>
 
+
                           <td className="p-3 text-emerald-400">
                             {trade.tp}
                           </td>
+
 
                           <td className="p-3 text-slate-300">
                             {trade.exit}
                           </td>
 
+
                           <td className="p-3">
                             {trade.lot}
                           </td>
 
+
                           <td className="p-3">
                             {trade.risk}
                           </td>
+
 
                           <td
                             className={
@@ -1566,6 +1899,7 @@ export default function Home() {
                             {Number(trade.pnl).toFixed(2)}
                           </td>
 
+
                           <td className="p-3">
 
                             <div className="flex gap-3">
@@ -1578,6 +1912,7 @@ export default function Home() {
                               >
                                 Edit
                               </button>
+
 
                               <button
                                 onClick={() =>
@@ -1601,13 +1936,16 @@ export default function Home() {
                   </table>
 
                 </div>
+
               )}
 
             </div>
 
           </section>
 
+
           {/* SETTINGS */}
+
           <section
             id="settings-section"
             className="mt-6 rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7"
@@ -1624,6 +1962,7 @@ export default function Home() {
             <p className="text-sm text-slate-600 mt-1">
               Journal system information
             </p>
+
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-7">
 
@@ -1645,17 +1984,19 @@ export default function Home() {
 
               </div>
 
+
               <div className="p-5 rounded-2xl bg-[#080d19] border border-white/10">
 
                 <p className="text-xs text-slate-600 uppercase">
-                  Total Records
+                  Account
                 </p>
 
-                <p className="text-2xl font-black text-cyan-400 mt-3">
-                  {trades.length}
+                <p className="font-black text-cyan-400 mt-3 truncate">
+                  {userEmail}
                 </p>
 
               </div>
+
 
               <div className="p-5 rounded-2xl bg-[#080d19] border border-white/10">
 
@@ -1664,7 +2005,7 @@ export default function Home() {
                 </p>
 
                 <p className="font-black text-white mt-3">
-                  Active
+                  Private & Active
                 </p>
 
               </div>
@@ -1673,8 +2014,11 @@ export default function Home() {
 
           </section>
 
+
+          {/* FOOTER */}
+
           <footer className="text-center py-10 text-xs text-slate-700">
-            Trade Journal • Personal Trading Analytics
+            Trade Journal • Private Trading Analytics
           </footer>
 
         </div>
