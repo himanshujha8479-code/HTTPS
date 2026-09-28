@@ -456,6 +456,96 @@ function Input({
   );
 }
 
+
+function MotivationHero() {
+  const candles: Array<[number, number, number, boolean]> = [
+    [6, 54, 18, true], [12, 42, 28, false], [18, 58, 22, true],
+    [25, 35, 34, true], [32, 48, 20, false], [39, 30, 38, true],
+    [47, 50, 24, false], [54, 28, 42, true], [62, 43, 25, true],
+    [69, 32, 36, false], [76, 52, 22, true], [84, 26, 44, true],
+    [91, 44, 30, false],
+  ];
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="relative isolate overflow-hidden rounded-3xl border border-white/[0.08] bg-[#05080d] shadow-[0_30px_100px_rgba(0,0,0,0.42)]"
+    >
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)",
+          backgroundSize: "46px 46px",
+        }}
+      />
+
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(34,211,238,0.10),transparent_38%),radial-gradient(circle_at_8%_50%,rgba(16,185,129,0.08),transparent_28%),radial-gradient(circle_at_92%_50%,rgba(244,63,94,0.07),transparent_28%)]" />
+
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full opacity-70"
+        aria-hidden="true"
+      >
+        {candles.map(([x, y, height, bullish], index) => {
+          const wickTop = Math.max(8, y - 9);
+          const wickBottom = Math.min(92, y + height + 9);
+          return (
+            <g key={index}>
+              <line
+                x1={x}
+                x2={x}
+                y1={wickTop}
+                y2={wickBottom}
+                stroke={bullish ? "#34d399" : "#fb7185"}
+                strokeWidth="0.7"
+                opacity="0.72"
+              />
+              <rect
+                x={x - 1.5}
+                y={y}
+                width="3"
+                height={height}
+                rx="0.55"
+                fill={bullish ? "#10b981" : "#ef4444"}
+                opacity="0.58"
+              />
+              <rect
+                x={x - 1.5}
+                y={y}
+                width="3"
+                height="2"
+                rx="0.55"
+                fill={bullish ? "#6ee7b7" : "#fda4af"}
+                opacity="0.9"
+              />
+            </g>
+          );
+        })}
+      </svg>
+
+      <div className="absolute inset-0 bg-gradient-to-r from-[#05080d]/80 via-[#05080d]/35 to-[#05080d]/80" />
+
+      <div className="relative flex min-h-[310px] items-center justify-center px-6 py-14 text-center sm:min-h-[350px] sm:px-12">
+        <div className="max-w-5xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/15 bg-black/25 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.28em] text-emerald-300/80 backdrop-blur-md">
+            Trader Mindset
+          </div>
+
+          <h2 className="font-sans text-4xl font-black uppercase leading-[1.05] tracking-[-0.035em] text-white drop-shadow-[0_8px_35px_rgba(0,0,0,0.65)] sm:text-5xl md:text-6xl lg:text-7xl">
+            GIVE UP IS NOT IN THE BLOOD <span className="text-emerald-300">SIRR</span>
+          </h2>
+
+          <div className="mx-auto mt-8 h-px w-32 bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const reducedMotion = useReducedMotion();
@@ -898,7 +988,9 @@ export default function Home() {
 
         <div className="mx-auto max-w-[1500px] px-5 py-6 sm:px-7 lg:px-8">
           <section id="dashboard">
-            <div className="mb-5">
+            <MotivationHero />
+
+            <div className="mb-5 mt-12">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/70">
                 Dashboard
               </p>
@@ -920,7 +1012,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="Total P&L"
                 value={
@@ -971,7 +1063,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
+            <div className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
               <EquityChart trades={filteredTrades} />
 
               <WinLossCircle
@@ -980,7 +1072,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="Average Win"
                 value={
@@ -1029,7 +1121,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
               <GlassCard className="p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Total Profit
