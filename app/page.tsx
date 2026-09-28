@@ -8,52 +8,274 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { supabase } from "@/lib/supabase";
 
 type Trade = {
   id: number;
   pair: string;
-  type: "BUY" | "SELL";
-  entry: number;
-  sl: number;
-  tp: number;
-  exit: number;
-  lot: number;
-  risk: number;
-  pnl: number;
-  created_at?: string;
-  user_id?: string;
+  type: string | null;
+  entry: number | null;
+  sl: number | null;
+  tp: number | null;
+  exit: number | null;
+  lot: number | null;
+  risk: number | null;
+  pnl: number | null;
+  created_at: string | null;
+  user_id: string | null;
 };
+
+type FormState = {
+  pair: string;
+  type: "BUY" | "SELL";
+  entry: string;
+  sl: string;
+  tp: string;
+  exit: string;
+  lot: string;
+  risk: string;
+  pnl: string;
+};
+
+const emptyForm: FormState = {
+  pair: "EURUSD",
+  type: "BUY",
+  entry: "",
+  sl: "",
+  tp: "",
+  exit: "",
+  lot: "",
+  risk: "",
+  pnl: "",
+};
+
+const navItems = [
+  { id: "dashboard", label: "Dashboard", icon: "⌂" },
+  { id: "trades", label: "Trades", icon: "↗" },
+  { id: "analytics", label: "Analytics", icon: "◒" },
+  { id: "settings", label: "Settings", icon: "⚙" },
+];
+
+function AnimatedNumber({
+  value,
+  prefix = "",
+  suffix = "",
+  decimals = 2,
+}: {
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  decimals?: number;
+}) {
+  const [display, setDisplay] = useState(0);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (reducedMotion) {
+      setDisplay(value);
+      return;
+    }
+
+    let frame = 0;
+    const start = display;
+    const duration = 800;
+    const startTime = performance.now();
+
+    const animate = (time: number) => {
+      const progress = Math.min((time - startTime) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(start + (value - start) * eased);
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(animate);
+      }
+    };
+
+    frame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(frame);
+  }, [value, reducedMotion]);
+
+  return (
+    <>
+      {prefix}
+      {display.toFixed(decimals)}
+      {suffix}
+    </>
+  );
+}
+
+function GlassCard({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay }}
+      whileHover={{
+        y: -3,
+        transition: { duration: 0.2 },
+      }}
+      className={`relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl ${className}`}
+    >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.05] via-transparent to-transparent" />
+      <div className="relative">{children}</div>
+    </motion.div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+  color = "cyan",
+  delay = 0,
+  prefix = "",
+  suffix = "",
+  decimals = 2,
+}: {
+  title: string;
+  value: number;
+  icon: string;
+  color?: "cyan" | "green" | "purple" | "orange";
+  delay?: number;
+  prefix?: string;
+  suffix?: string;
+  decimals?: number;
+}) {
+  const colors = {
+    cyan: "from-cyan-400/20 to-blue-500/5 text-cyan-300",
+    green: "from-emerald-400/20 to-green-500/5 text-emerald-300",
+    purple: "from-violet-400/20 to-purple-500/5 text-violet-300",
+    orange: "from-orange-400/20 to-amber-500/5 text-orange-300",
+  };
+
+  return (
+    <GlassCard delay={delay} className="p-5">
+      <div
+        className={`absolute right-0 top-0 h-24 w-24 rounded-full bg-gradient-to-br ${colors[color]} opacity-50 blur-2xl`}
+      />
+
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/40">
+            {title}
+          </p>
+
+          <p className="mt-3 text-2xl font-semibold tracking-tight text-white">
+            <AnimatedNumber
+              value={value}
+              prefix={prefix}
+              suffix={suffix}
+              decimals={decimals}
+            />
+          </p>
+        </div>
+
+        <div
+          className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-gradient-to-br ${colors[color]}`}
+        >
+          <span className="text-lg">{icon}</span>
+        </div>
+      </div>
+
+      <div className="mt-5 h-1 overflow-hidden rounded-full bg-white/[0.05]">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: "72%" }}
+          transition={{ duration: 1, delay: delay + 0.3 }}
+          className={`h-full rounded-full bg-current opacity-60 ${colors[color].split(" ").pop()}`}
+        />
+      </div>
+    </GlassCard>
+  );
+}
+
+function SectionTitle({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="mb-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-xl font-semibold text-white">{title}</h2>
+      {description && (
+        <p className="mt-1 text-sm text-white/40">{description}</p>
+      )}
+    </div>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  type = "number",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-white/40">
+        {label}
+      </span>
+
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/50 focus:bg-white/[0.04] focus:ring-2 focus:ring-cyan-400/10"
+      />
+    </label>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
 
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("Dashboard");
-
-  const [pair, setPair] = useState("XAUUSD");
-  const [type, setType] = useState<"BUY" | "SELL">("BUY");
-
-  const [entry, setEntry] = useState("");
-  const [sl, setSl] = useState("");
-  const [tp, setTp] = useState("");
-  const [exit, setExit] = useState("");
-  const [lot, setLot] = useState("");
-  const [risk, setRisk] = useState("");
-  const [pnl, setPnl] = useState("");
-
-  const [filterPair, setFilterPair] = useState("ALL");
-  const [filterType, setFilterType] = useState("ALL");
-  const [filterMonth, setFilterMonth] = useState("ALL");
-
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [userEmail, setUserEmail] = useState("");
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // =========================================================
-  // AUTH CHECK + LOAD ONLY CURRENT USER'S TRADES
-  // =========================================================
+  const [pairFilter, setPairFilter] = useState("ALL");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [monthFilter, setMonthFilter] = useState("ALL");
+
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState("");
+
+  const updateForm = (key: keyof FormState, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -76,22 +298,20 @@ export default function Home() {
       const { data, error } = await supabase
         .from("trades")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error("SUPABASE ERROR:", error);
+        console.error(error);
       } else if (mounted) {
-        setTrades(data || []);
+        setTrades((data || []) as Trade[]);
       }
 
-      if (mounted) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
 
     loadTrades();
 
-    // If user logs out somewhere else, send them to login
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -106,60 +326,66 @@ export default function Home() {
     };
   }, [router]);
 
-  // =========================================================
-  // LOGOUT
-  // =========================================================
+  useEffect(() => {
+    if (!toast) return;
 
-  async function logout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
+    const timeout = setTimeout(() => {
+      setToast("");
+    }, 2800);
 
-  // =========================================================
-  // FILTERED TRADES
-  // =========================================================
+    return () => clearTimeout(timeout);
+  }, [toast]);
+
+  const availablePairs = useMemo(() => {
+    return Array.from(new Set(trades.map((t) => t.pair).filter(Boolean)));
+  }, [trades]);
+
+  const availableMonths = useMemo(() => {
+    return Array.from(
+      new Set(
+        trades
+          .map((t) => {
+            if (!t.created_at) return null;
+            return t.created_at.slice(0, 7);
+          })
+          .filter(Boolean)
+      )
+    ).sort((a, b) => String(b).localeCompare(String(a)));
+  }, [trades]);
 
   const filteredTrades = useMemo(() => {
     return trades.filter((trade) => {
-      const pairMatch =
-        filterPair === "ALL" || trade.pair === filterPair;
+      const pairOk =
+        pairFilter === "ALL" || trade.pair === pairFilter;
 
-      const typeMatch =
-        filterType === "ALL" || trade.type === filterType;
+      const typeOk =
+        typeFilter === "ALL" || trade.type === typeFilter;
 
-      let monthMatch = true;
+      const monthOk =
+        monthFilter === "ALL" ||
+        trade.created_at?.slice(0, 7) === monthFilter;
 
-      if (filterMonth !== "ALL" && trade.created_at) {
-        const date = new Date(trade.created_at);
-
-        const month =
-          date.getFullYear() +
-          "-" +
-          String(date.getMonth() + 1).padStart(2, "0");
-
-        monthMatch = month === filterMonth;
-      }
-
-      return pairMatch && typeMatch && monthMatch;
+      return pairOk && typeOk && monthOk;
     });
-  }, [trades, filterPair, filterType, filterMonth]);
+  }, [trades, pairFilter, typeFilter, monthFilter]);
 
-  // =========================================================
-  // ANALYTICS
-  // =========================================================
-
-  const totalPnl = filteredTrades.reduce(
-    (sum, trade) => sum + Number(trade.pnl),
-    0
+  const totalPnl = useMemo(
+    () =>
+      filteredTrades.reduce(
+        (sum, trade) => sum + Number(trade.pnl || 0),
+        0
+      ),
+    [filteredTrades]
   );
 
-  const wins = filteredTrades.filter(
-    (trade) => Number(trade.pnl) > 0
+  const wins = useMemo(
+    () => filteredTrades.filter((t) => Number(t.pnl || 0) > 0),
+    [filteredTrades]
   );
 
-  const losses = filteredTrades.filter(
-    (trade) => Number(trade.pnl) < 0
+  const losses = useMemo(
+    () => filteredTrades.filter((t) => Number(t.pnl || 0) < 0),
+    [filteredTrades]
   );
 
   const winRate =
@@ -169,240 +395,154 @@ export default function Home() {
 
   const averageWin =
     wins.length > 0
-      ? wins.reduce(
-          (sum, trade) => sum + Number(trade.pnl),
-          0
-        ) / wins.length
+      ? wins.reduce((s, t) => s + Number(t.pnl || 0), 0) / wins.length
       : 0;
 
   const averageLoss =
     losses.length > 0
-      ? losses.reduce(
-          (sum, trade) => sum + Number(trade.pnl),
-          0
-        ) / losses.length
+      ? Math.abs(
+          losses.reduce((s, t) => s + Number(t.pnl || 0), 0) /
+            losses.length
+        )
       : 0;
 
   const grossProfit = wins.reduce(
-    (sum, trade) => sum + Number(trade.pnl),
+    (s, t) => s + Number(t.pnl || 0),
     0
   );
 
   const grossLoss = Math.abs(
-    losses.reduce(
-      (sum, trade) => sum + Number(trade.pnl),
-      0
-    )
+    losses.reduce((s, t) => s + Number(t.pnl || 0), 0)
   );
 
   const profitFactor =
-    grossLoss > 0 ? grossProfit / grossLoss : 0;
+    grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? grossProfit : 0;
+
+  const equityCurve = useMemo(() => {
+    let running = 0;
+
+    return filteredTrades.map((trade) => {
+      running += Number(trade.pnl || 0);
+      return running;
+    });
+  }, [filteredTrades]);
 
   const maxDrawdown = useMemo(() => {
-    let balance = 0;
     let peak = 0;
     let maxDD = 0;
 
-    filteredTrades.forEach((trade) => {
-      balance += Number(trade.pnl);
-
-      if (balance > peak) {
-        peak = balance;
-      }
-
-      const drawdown = peak - balance;
-
-      if (drawdown > maxDD) {
-        maxDD = drawdown;
-      }
+    equityCurve.forEach((value) => {
+      peak = Math.max(peak, value);
+      maxDD = Math.max(maxDD, peak - value);
     });
 
     return maxDD;
-  }, [filteredTrades]);
+  }, [equityCurve]);
 
   const currentStreak = useMemo(() => {
-    if (filteredTrades.length === 0) {
-      return { count: 0, type: "None" };
-    }
+    if (!filteredTrades.length) return { value: 0, type: "NONE" };
 
-    let count = 0;
-    let streakType = "";
+    let streak = 0;
+    let type = Number(filteredTrades[filteredTrades.length - 1].pnl || 0) >= 0
+      ? "WIN"
+      : "LOSS";
 
     for (let i = filteredTrades.length - 1; i >= 0; i--) {
-      const value = Number(filteredTrades[i].pnl);
+      const pnl = Number(filteredTrades[i].pnl || 0);
 
-      if (value === 0) break;
-
-      const currentType = value > 0 ? "Win" : "Loss";
-
-      if (!streakType) {
-        streakType = currentType;
-      }
-
-      if (currentType !== streakType) {
+      if (
+        (type === "WIN" && pnl > 0) ||
+        (type === "LOSS" && pnl < 0)
+      ) {
+        streak++;
+      } else {
         break;
       }
-
-      count++;
     }
 
-    return {
-      count,
-      type: streakType || "None",
-    };
-  }, [filteredTrades]);
-
-  const equityCurve = useMemo(() => {
-    let balance = 0;
-
-    return filteredTrades.map((trade, index) => {
-      balance += Number(trade.pnl);
-
-      return {
-        trade: index + 1,
-        balance,
-      };
-    });
+    return { value: streak, type };
   }, [filteredTrades]);
 
   const monthlyPerformance = useMemo(() => {
-    const months: Record<string, number> = {};
+    const map: Record<string, number> = {};
 
     filteredTrades.forEach((trade) => {
       if (!trade.created_at) return;
 
-      const date = new Date(trade.created_at);
+      const month = trade.created_at.slice(0, 7);
 
-      const key =
-        date.getFullYear() +
-        "-" +
-        String(date.getMonth() + 1).padStart(2, "0");
-
-      months[key] =
-        (months[key] || 0) + Number(trade.pnl);
+      map[month] = (map[month] || 0) + Number(trade.pnl || 0);
     });
 
-    return Object.entries(months)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, value]) => ({
-        month,
-        value,
-      }));
+    return Object.entries(map)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-6);
   }, [filteredTrades]);
 
-  const availablePairs = Array.from(
-    new Set(trades.map((trade) => trade.pair))
-  );
-
-  const availableMonths = Array.from(
-    new Set(
-      trades
-        .filter((trade) => trade.created_at)
-        .map((trade) => {
-          const date = new Date(trade.created_at!);
-
-          return (
-            date.getFullYear() +
-            "-" +
-            String(date.getMonth() + 1).padStart(2, "0")
-          );
-        })
-    )
-  ).sort();
-
-  // =========================================================
-  // R:R CALCULATION
-  // =========================================================
-
   const rr = useMemo(() => {
-    const e = Number(entry);
-    const s = Number(sl);
-    const t = Number(tp);
+    const entry = Number(form.entry);
+    const sl = Number(form.sl);
+    const tp = Number(form.tp);
 
-    if (!e || !s || !t) return null;
+    if (!entry || !sl || !tp || entry === sl) return null;
 
-    const riskDistance = Math.abs(e - s);
-    const rewardDistance = Math.abs(t - e);
+    const risk = Math.abs(entry - sl);
+    const reward = Math.abs(tp - entry);
 
-    if (riskDistance === 0) return null;
+    return risk > 0 ? reward / risk : null;
+  }, [form.entry, form.sl, form.tp]);
 
-    return (rewardDistance / riskDistance).toFixed(2);
-  }, [entry, sl, tp]);
-
-  // =========================================================
-  // NAVIGATION
-  // =========================================================
-
-  function navigate(section: string) {
-    setActiveSection(section);
+  const scrollTo = (id: string) => {
+    setActiveSection(id);
     setSidebarOpen(false);
 
-    if (section === "Dashboard") {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
-    if (section === "Analytics") {
-      document
-        .getElementById("analytics-section")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }
-
-    if (section === "Trades") {
-      document
-        .getElementById("trades-section")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }
-
-    if (section === "Settings") {
-      document
-        .getElementById("settings-section")
-        ?.scrollIntoView({
-          behavior: "smooth",
-        });
-    }
-  }
-
-  // =========================================================
-  // CLEAR FORM
-  // =========================================================
-
-  function clearForm() {
-    setEntry("");
-    setSl("");
-    setTp("");
-    setExit("");
-    setLot("");
-    setRisk("");
-    setPnl("");
+  const clearForm = () => {
+    setForm(emptyForm);
     setEditingId(null);
-  }
+  };
 
-  // =========================================================
-  // SAVE / UPDATE TRADE
-  // =========================================================
-
-  async function saveTrade() {
+  const saveTrade = async () => {
     if (
-      !entry ||
-      !sl ||
-      !tp ||
-      !exit ||
-      !lot ||
-      !risk ||
-      !pnl
+      !form.pair ||
+      !form.type ||
+      !form.entry ||
+      !form.sl ||
+      !form.tp ||
+      !form.exit ||
+      !form.lot ||
+      !form.risk ||
+      !form.pnl
     ) {
-      alert("Please fill all fields");
+      setToast("Please fill all trade fields");
       return;
     }
 
-    // Make sure user is logged in
+    const entry = Number(form.entry);
+    const sl = Number(form.sl);
+    const tp = Number(form.tp);
+    const exit = Number(form.exit);
+    const lot = Number(form.lot);
+    const risk = Number(form.risk);
+    const pnl = Number(form.pnl);
+
+    if ([entry, sl, tp, exit, lot, risk, pnl].some((n) => Number.isNaN(n))) {
+      setToast("Please enter valid numbers");
+      return;
+    }
+
+    if (entry === sl) {
+      setToast("Entry and Stop Loss cannot be same");
+      return;
+    }
+
+    setSaving(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -412,137 +552,94 @@ export default function Home() {
       return;
     }
 
-    const e = Number(entry);
-    const s = Number(sl);
-    const t = Number(tp);
-    const x = Number(exit);
-
-    if (Math.abs(e - s) === 0) {
-      alert("Entry aur SL same nahi ho sakte.");
-      return;
-    }
-
-    // =====================================================
-    // UPDATE EXISTING TRADE
-    // RLS will allow only user's own trade
-    // =====================================================
+    const payload = {
+      pair: form.pair,
+      type: form.type,
+      entry,
+      sl,
+      tp,
+      exit,
+      lot,
+      risk,
+      pnl,
+    };
 
     if (editingId !== null) {
       const { data, error } = await supabase
         .from("trades")
-        .update({
-          pair,
-          type,
-          entry: e,
-          sl: s,
-          tp: t,
-          exit: x,
-          lot: Number(lot),
-          risk: Number(risk),
-          pnl: Number(pnl),
-        })
+        .update(payload)
         .eq("id", editingId)
+        .eq("user_id", user.id)
         .select()
         .single();
 
       if (error) {
-        console.error("Update error:", error);
-        alert(
-          "Trade update nahi hua. Sirf apne trades edit kar sakte ho."
+        console.error(error);
+        setToast("Could not update trade");
+      } else {
+        setTrades((prev) =>
+          prev.map((trade) =>
+            trade.id === editingId ? (data as Trade) : trade
+          )
         );
-        return;
+
+        setToast(
+          rr !== null
+            ? `Trade updated • R:R ${rr.toFixed(2)}`
+            : "Trade updated successfully"
+        );
+
+        clearForm();
       }
-
-      setTrades((prev) =>
-        prev.map((trade) =>
-          trade.id === editingId ? data : trade
-        )
-      );
-
-      clearForm();
-
-      alert("Trade updated successfully!");
-      return;
-    }
-
-    // =====================================================
-    // INSERT NEW TRADE
-    // USER ID IS AUTOMATICALLY SAVED
-    // =====================================================
-
-    const { data, error } = await supabase
-      .from("trades")
-      .insert([
-        {
-          pair,
-          type,
-          entry: e,
-          sl: s,
-          tp: t,
-          exit: x,
-          lot: Number(lot),
-          risk: Number(risk),
-          pnl: Number(pnl),
-
-          // IMPORTANT
+    } else {
+      const { data, error } = await supabase
+        .from("trades")
+        .insert({
+          ...payload,
           user_id: user.id,
-        },
-      ])
-      .select()
-      .single();
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error("Insert error:", error);
-      alert("Trade save nahi hua.");
-      return;
+      if (error) {
+        console.error(error);
+        setToast("Could not save trade");
+      } else {
+        setTrades((prev) => [...prev, data as Trade]);
+
+        setToast(
+          rr !== null
+            ? `Trade saved • R:R ${rr.toFixed(2)}`
+            : "Trade saved successfully"
+        );
+
+        clearForm();
+      }
     }
 
-    setTrades((prev) => [...prev, data]);
+    setSaving(false);
+  };
 
-    clearForm();
-
-    const calculatedRR =
-      Math.abs(t - e) / Math.abs(e - s);
-
-    alert(
-      "Trade saved! R:R = " +
-        calculatedRR.toFixed(2)
-    );
-  }
-
-  // =========================================================
-  // EDIT TRADE
-  // =========================================================
-
-  function editTrade(trade: Trade) {
+  const editTrade = (trade: Trade) => {
     setEditingId(trade.id);
-    setPair(trade.pair);
-    setType(trade.type);
-    setEntry(String(trade.entry));
-    setSl(String(trade.sl));
-    setTp(String(trade.tp));
-    setExit(String(trade.exit));
-    setLot(String(trade.lot));
-    setRisk(String(trade.risk));
-    setPnl(String(trade.pnl));
 
-    document
-      .getElementById("trades-section")
-      ?.scrollIntoView({
-        behavior: "smooth",
-      });
-  }
+    setForm({
+      pair: trade.pair || "EURUSD",
+      type: trade.type === "SELL" ? "SELL" : "BUY",
+      entry: String(trade.entry ?? ""),
+      sl: String(trade.sl ?? ""),
+      tp: String(trade.tp ?? ""),
+      exit: String(trade.exit ?? ""),
+      lot: String(trade.lot ?? ""),
+      risk: String(trade.risk ?? ""),
+      pnl: String(trade.pnl ?? ""),
+    });
 
-  // =========================================================
-  // DELETE TRADE
-  // =========================================================
+    scrollTo("trades");
+  };
 
-  async function deleteTrade(id: number) {
-    const confirmDelete = confirm(
-      "Kya aap ye trade delete karna chahte ho?"
-    );
-
-    if (!confirmDelete) return;
+  const deleteTrade = async (id: number) => {
+    if (!confirm("Delete this trade?")) return;
 
     const {
       data: { user },
@@ -556,1475 +653,1141 @@ export default function Home() {
     const { error } = await supabase
       .from("trades")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) {
-      console.error("Delete error:", error);
-      alert(
-        "Trade delete nahi hua. Sirf apne trades delete kar sakte ho."
-      );
+      console.error(error);
+      setToast("Could not delete trade");
       return;
     }
 
-    setTrades((prev) =>
-      prev.filter((trade) => trade.id !== id)
-    );
-  }
+    setTrades((prev) => prev.filter((trade) => trade.id !== id));
+    setToast("Trade deleted");
+  };
 
-  // =========================================================
-  // FORMAT MONTH
-  // =========================================================
+  const logout = async () => {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  };
 
-  function formatMonth(month: string) {
-    const parts = month.split("-");
+  const formatMonth = (month: string) => {
+    const [year, m] = month.split("-");
+    const date = new Date(Number(year), Number(m) - 1);
 
-    const date = new Date(
-      Number(parts[0]),
-      Number(parts[1]) - 1
-    );
-
-    return date.toLocaleString("en-US", {
+    return date.toLocaleDateString("en-US", {
       month: "short",
       year: "numeric",
     });
-  }
+  };
 
-  // =========================================================
-  // LOADING SCREEN
-  // =========================================================
+  const maxMonthly = Math.max(
+    ...monthlyPerformance.map(([, value]) => Math.abs(value)),
+    1
+  );
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
-
+      <div className="flex min-h-screen items-center justify-center bg-[#06070a] text-white">
         <div className="text-center">
+          <motion.div
+            animate={{
+              rotate: 360,
+            }}
+            transition={{
+              duration: 1.2,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="mx-auto h-10 w-10 rounded-full border-2 border-white/10 border-t-cyan-400"
+          />
 
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center text-3xl shadow-xl shadow-cyan-500/20">
-            📈
-          </div>
-
-          <p className="mt-5 text-slate-400">
-            Loading your journal...
-          </p>
-
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-4 text-sm text-white/40"
+          >
+            Loading your trading journal...
+          </motion.p>
         </div>
-
-      </main>
+      </div>
     );
   }
 
-  // =========================================================
-  // MAIN UI
-  // =========================================================
-
   return (
-    <main className="min-h-screen bg-[#030712] text-white">
-
-      {/* MOBILE HEADER */}
-
-      <header className="md:hidden sticky top-0 z-50 bg-[#050914]/90 backdrop-blur-xl border-b border-white/10 px-4 py-3">
-
-        <div className="flex items-center justify-between">
-
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl hover:bg-white/10 transition"
-          >
-            ☰
-          </button>
-
-          <div className="text-center">
-
-            <p className="font-black text-lg tracking-tight">
-              Trade Journal
-            </p>
-
-            <p className="text-[9px] text-cyan-400 uppercase tracking-[0.2em]">
-              Trading Analytics
-            </p>
-
-          </div>
-
-          <div className="w-11 h-11 rounded-xl bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
-            📈
-          </div>
-
-        </div>
-
-      </header>
-
-
-      {/* OVERLAY */}
-
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="md:hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+    <main className="min-h-screen overflow-x-hidden bg-[#06070a] text-white">
+      {/* Ambient background */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <motion.div
+          animate={
+            reducedMotion
+              ? {}
+              : {
+                  x: [0, 80, 0],
+                  y: [0, -40, 0],
+                }
+          }
+          transition={{
+            duration: 12,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-cyan-500/[0.06] blur-[120px]"
         />
-      )}
 
-
-      {/* SIDEBAR */}
-
-      <aside
-        className={
-          "fixed left-0 top-0 h-screen w-72 bg-[#050914] border-r border-white/10 z-[60] transition-transform duration-300 " +
-          (sidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0")
-        }
-      >
-
-        {/* LOGO */}
-
-        <div className="p-6 border-b border-white/10">
-
-          <div className="flex items-center gap-3">
-
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center text-2xl shadow-xl shadow-cyan-500/20">
-              📈
-            </div>
-
-            <div>
-
-              <h2 className="font-black text-lg">
-                Trade Journal
-              </h2>
-
-              <p className="text-xs text-slate-500">
-                Professional Analytics
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* NAVIGATION */}
-
-        <div className="p-4">
-
-          <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em] font-bold px-3 mb-3">
-            Navigation
-          </p>
-
-          {[
-            ["Dashboard", "⌂"],
-            ["Trades", "▣"],
-            ["Analytics", "◈"],
-            ["Settings", "⚙"],
-          ].map(([name, icon]) => (
-
-            <button
-              key={name}
-              onClick={() => navigate(name)}
-              className={
-                "group w-full flex items-center gap-4 px-4 py-3.5 rounded-xl mb-2 text-left transition-all duration-200 " +
-                (activeSection === name
-                  ? "bg-gradient-to-r from-cyan-500/15 to-blue-500/5 text-cyan-400 border border-cyan-400/20 shadow-lg shadow-cyan-500/5"
-                  : "text-slate-400 hover:bg-white/5 hover:text-white")
-              }
-            >
-
-              <span
-                className={
-                  "text-xl w-6 text-center transition-transform group-hover:scale-110 " +
-                  (activeSection === name
-                    ? "text-cyan-400"
-                    : "")
+        <motion.div
+          animate={
+            reducedMotion
+              ? {}
+              : {
+                  x: [0, -70, 0],
+                  y: [0, 50, 0],
                 }
-              >
-                {icon}
-              </span>
-
-              <span className="font-semibold">
-                {name}
-              </span>
-
-              {activeSection === name && (
-                <span className="ml-auto w-2 h-2 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400/70" />
-              )}
-
-            </button>
-
-          ))}
-
-        </div>
-
-
-        {/* ACCOUNT CARD */}
-
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-
-          <div className="rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/10 p-4">
-
-            <div className="flex items-center gap-3">
-
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center font-black">
-                {userEmail
-                  ? userEmail.charAt(0).toUpperCase()
-                  : "T"}
-              </div>
-
-              <div className="min-w-0">
-
-                <p className="font-bold text-sm">
-                  Trader
-                </p>
-
-                <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
-                  {userEmail || "Personal Journal"}
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <div className="mt-4 pt-3 border-t border-white/10 flex justify-between">
-
-              <div>
-
-                <p className="text-[10px] text-slate-600 uppercase">
-                  Trades
-                </p>
-
-                <p className="font-black mt-1">
-                  {trades.length}
-                </p>
-
-              </div>
-
-
-              <div className="text-right">
-
-                <p className="text-[10px] text-slate-600 uppercase">
-                  P&L
-                </p>
-
-                <p
-                  className={
-                    "font-black mt-1 " +
-                    (totalPnl >= 0
-                      ? "text-emerald-400"
-                      : "text-red-400")
-                  }
-                >
-                  {totalPnl >= 0 ? "+" : ""}
-                  {totalPnl.toFixed(2)}
-                </p>
-
-              </div>
-
-            </div>
-
-
-            {/* LOGOUT */}
-
-            <button
-              onClick={logout}
-              className="w-full mt-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500 hover:text-white transition"
-            >
-              Logout
-            </button>
-
-          </div>
-
-        </div>
-
-      </aside>
-
-
-      {/* MAIN */}
-
-      <div className="md:ml-72">
-
-        <div className="max-w-[1500px] mx-auto px-4 md:px-8 py-6 md:py-10">
-
-
-          {/* TOP HEADER */}
-
-          <div
-            id="dashboard-section"
-            className="hidden md:flex items-center justify-between mb-10"
-          >
-
-            <div>
-
-              <div className="flex items-center gap-2 mb-2">
-
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-
-                <span className="text-xs text-emerald-400 font-bold uppercase tracking-widest">
-                  Dashboard Live
-                </span>
-
-              </div>
-
-              <h1 className="text-5xl font-black tracking-tight">
-                Good Trading.
-              </h1>
-
-              <p className="text-slate-500 mt-2">
-                Track, analyze and improve your trading performance.
-              </p>
-
-            </div>
-
-
-            <div className="flex items-center gap-3">
-
-              <div className="px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-
-                <p className="text-[10px] text-slate-600 uppercase tracking-widest">
-                  Total Trades
-                </p>
-
-                <p className="font-black text-xl mt-1">
-                  {trades.length}
-                </p>
-
-              </div>
-
-
-              <button
-                onClick={() => {
-                  setActiveSection("Trades");
-
-                  document
-                    .getElementById("trades-section")
-                    ?.scrollIntoView({
-                      behavior: "smooth",
-                    });
-                }}
-                className="px-5 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-bold shadow-xl shadow-cyan-500/10 hover:scale-[1.02] transition"
-              >
-                + Add Trade
-              </button>
-
-            </div>
-
-          </div>
-
-
-          {/* MOBILE INTRO */}
-
-          <div className="md:hidden mb-6">
-
-            <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-              Dashboard
-            </p>
-
-            <h1 className="text-3xl font-black mt-2">
-              Trading Overview
-            </h1>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Track your performance.
-            </p>
-
-          </div>
-
-
-          {/* FILTERS */}
-
-          <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 mb-6 backdrop-blur-xl">
-
-            <div className="flex items-center justify-between mb-4">
-
-              <div>
-
-                <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                  Analytics
-                </p>
-
-                <h2 className="font-bold text-lg mt-1">
-                  Performance Filters
-                </h2>
-
-              </div>
-
-
-              <button
-                onClick={() => {
-                  setFilterPair("ALL");
-                  setFilterType("ALL");
-                  setFilterMonth("ALL");
-                }}
-                className="px-3 py-2 rounded-lg bg-white/5 text-xs text-slate-400 hover:text-white transition"
-              >
-                Reset
-              </button>
-
-            </div>
-
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-              <select
-                value={filterPair}
-                onChange={(e) =>
-                  setFilterPair(e.target.value)
-                }
-                className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
-              >
-
-                <option value="ALL">
-                  All Pairs
-                </option>
-
-                {availablePairs.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-
-              </select>
-
-
-              <select
-                value={filterType}
-                onChange={(e) =>
-                  setFilterType(e.target.value)
-                }
-                className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
-              >
-
-                <option value="ALL">
-                  BUY + SELL
-                </option>
-
-                <option value="BUY">
-                  BUY Only
-                </option>
-
-                <option value="SELL">
-                  SELL Only
-                </option>
-
-              </select>
-
-
-              <select
-                value={filterMonth}
-                onChange={(e) =>
-                  setFilterMonth(e.target.value)
-                }
-                className="bg-[#080d19] border border-white/10 rounded-xl p-3 outline-none focus:border-cyan-400 transition"
-              >
-
-                <option value="ALL">
-                  All Months
-                </option>
-
-                {availableMonths.map((month) => (
-                  <option key={month} value={month}>
-                    {formatMonth(month)}
-                  </option>
-                ))}
-
-              </select>
-
-            </div>
-
-          </div>
-
-
-          {/* PRIMARY STATS */}
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-
-            {/* PNL */}
-
-            <div className="group rounded-3xl p-5 bg-gradient-to-br from-emerald-500/[0.12] to-white/[0.02] border border-emerald-400/10 hover:border-emerald-400/30 transition">
-
-              <div className="flex items-center justify-between">
-
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
-                  Total P&L
-                </p>
-
-                <span className="text-lg">
-                  $
-                </span>
-
-              </div>
-
-              <p
-                className={
-                  "text-3xl md:text-4xl font-black mt-4 " +
-                  (totalPnl >= 0
-                    ? "text-emerald-400"
-                    : "text-red-400")
-                }
-              >
-                {totalPnl >= 0 ? "+" : ""}
-                {totalPnl.toFixed(2)}
-              </p>
-
-              <p className="text-xs text-slate-600 mt-2">
-                Across filtered trades
-              </p>
-
-            </div>
-
-
-            {/* WIN RATE */}
-
-            <div className="group rounded-3xl p-5 bg-gradient-to-br from-blue-500/[0.12] to-white/[0.02] border border-blue-400/10 hover:border-blue-400/30 transition">
-
-              <div className="flex items-center justify-between">
-
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
-                  Win Rate
-                </p>
-
-                <span className="text-lg">
-                  %
-                </span>
-
-              </div>
-
-              <p className="text-3xl md:text-4xl font-black mt-4 text-blue-400">
-                {winRate.toFixed(1)}%
-              </p>
-
-              <p className="text-xs text-slate-600 mt-2">
-                {wins.length} winning trades
-              </p>
-
-            </div>
-
-
-            {/* PROFIT FACTOR */}
-
-            <div className="group rounded-3xl p-5 bg-gradient-to-br from-purple-500/[0.12] to-white/[0.02] border border-purple-400/10 hover:border-purple-400/30 transition">
-
-              <div className="flex items-center justify-between">
-
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
-                  Profit Factor
-                </p>
-
-                <span className="text-lg">
-                  ◈
-                </span>
-
-              </div>
-
-              <p className="text-3xl md:text-4xl font-black mt-4 text-purple-400">
-                {profitFactor.toFixed(2)}
-              </p>
-
-              <p className="text-xs text-slate-600 mt-2">
-                Gross profit / loss
-              </p>
-
-            </div>
-
-
-            {/* DRAWDOWN */}
-
-            <div className="group rounded-3xl p-5 bg-gradient-to-br from-orange-500/[0.12] to-white/[0.02] border border-orange-400/10 hover:border-orange-400/30 transition">
-
-              <div className="flex items-center justify-between">
-
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
-                  Max Drawdown
-                </p>
-
-                <span className="text-lg">
-                  ↓
-                </span>
-
-              </div>
-
-              <p className="text-3xl md:text-4xl font-black mt-4 text-orange-400">
-                -{maxDrawdown.toFixed(2)}
-              </p>
-
-              <p className="text-xs text-slate-600 mt-2">
-                Maximum equity decline
-              </p>
-
-            </div>
-
-          </div>
-
-
-          {/* SECONDARY STATS */}
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-
-            <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
-
-              <p className="text-xs text-slate-600 uppercase">
-                Winning Trades
-              </p>
-
-              <p className="text-2xl font-black text-emerald-400 mt-3">
-                {wins.length}
-              </p>
-
-            </div>
-
-
-            <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
-
-              <p className="text-xs text-slate-600 uppercase">
-                Losing Trades
-              </p>
-
-              <p className="text-2xl font-black text-red-400 mt-3">
-                {losses.length}
-              </p>
-
-            </div>
-
-
-            <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
-
-              <p className="text-xs text-slate-600 uppercase">
-                Average Win
-              </p>
-
-              <p className="text-2xl font-black text-emerald-400 mt-3">
-                +{averageWin.toFixed(2)}
-              </p>
-
-            </div>
-
-
-            <div className="p-5 rounded-3xl bg-white/[0.025] border border-white/10">
-
-              <p className="text-xs text-slate-600 uppercase">
-                Average Loss
-              </p>
-
-              <p className="text-2xl font-black text-red-400 mt-3">
-                {averageLoss.toFixed(2)}
-              </p>
-
-            </div>
-
-          </div>
-
-
-          {/* ANALYTICS */}
-
-          <section id="analytics-section">
-
-            {/* EQUITY */}
-
-            <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-6">
-
-              <div className="flex items-start justify-between mb-7">
-
-                <div>
-
-                  <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                    Performance
-                  </p>
-
-                  <h2 className="text-xl md:text-2xl font-black mt-1">
-                    Equity Curve
-                  </h2>
-
-                  <p className="text-sm text-slate-600 mt-1">
-                    Cumulative trading performance
-                  </p>
-
-                </div>
-
-
-                <div className="px-3 py-2 rounded-xl bg-cyan-400/10 text-cyan-400 text-xs font-bold">
-                  {filteredTrades.length} Trades
-                </div>
-
-              </div>
-
-
-              {equityCurve.length === 0 ? (
-
-                <div className="h-64 flex items-center justify-center rounded-2xl bg-black/10 text-slate-600">
-                  No trading data available
-                </div>
-
-              ) : (
-
-                <div className="h-64 flex items-end gap-1 overflow-x-auto pb-2">
-
-                  {equityCurve.map((item) => {
-
-                    const maxAbs = Math.max(
-                      ...equityCurve.map((x) =>
-                        Math.abs(x.balance)
-                      ),
-                      1
-                    );
-
-                    const height =
-                      (Math.abs(item.balance) /
-                        maxAbs) *
-                      100;
-
-                    return (
-                      <div
-                        key={item.trade}
-                        className="min-w-[18px] h-full flex items-end group relative"
-                        title={
-                          "Trade " +
-                          item.trade +
-                          " | P&L: " +
-                          item.balance.toFixed(2)
-                        }
-                      >
-
-                        <div
-                          className={
-                            "w-full rounded-t-md transition-all duration-300 group-hover:opacity-80 " +
-                            (item.balance >= 0
-                              ? "bg-gradient-to-t from-cyan-600 to-cyan-300"
-                              : "bg-gradient-to-t from-red-600 to-red-300")
-                          }
-                          style={{
-                            height:
-                              Math.max(height, 3) +
-                              "%",
-                          }}
-                        />
-
-                      </div>
-                    );
-                  })}
-
-                </div>
-
-              )}
-
-            </div>
-
-
-            {/* WIN LOSS + STREAK */}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-              {/* WIN LOSS */}
-
-              <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7">
-
-                <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                  Outcomes
-                </p>
-
-                <h2 className="text-xl font-black mt-1">
-                  Win / Loss
-                </h2>
-
-                <p className="text-sm text-slate-600 mt-1 mb-7">
-                  Trade outcome distribution
-                </p>
-
-
-                <div className="flex items-center justify-center gap-10">
-
-                  <div
-                    className="w-36 h-36 md:w-44 md:h-44 rounded-full flex items-center justify-center"
-                    style={{
-                      background:
-                        "conic-gradient(#34d399 " +
-                        winRate +
-                        "%, #f87171 " +
-                        winRate +
-                        "%)",
-                    }}
-                  >
-
-                    <div className="w-24 h-24 md:w-30 md:h-30 rounded-full bg-[#070b14] flex items-center justify-center border border-white/10">
-
-                      <div className="text-center">
-
-                        <p className="text-2xl font-black">
-                          {winRate.toFixed(0)}%
-                        </p>
-
-                        <p className="text-[9px] text-slate-600 uppercase tracking-widest">
-                          Win Rate
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="space-y-5">
-
-                    <div>
-
-                      <div className="flex items-center gap-2">
-
-                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-
-                        <p className="text-sm text-slate-400">
-                          Wins
-                        </p>
-
-                      </div>
-
-                      <p className="text-3xl font-black mt-1">
-                        {wins.length}
-                      </p>
-
-                    </div>
-
-
-                    <div>
-
-                      <div className="flex items-center gap-2">
-
-                        <span className="w-2 h-2 rounded-full bg-red-400" />
-
-                        <p className="text-sm text-slate-400">
-                          Losses
-                        </p>
-
-                      </div>
-
-                      <p className="text-3xl font-black mt-1">
-                        {losses.length}
-                      </p>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* STREAK */}
-
-              <div className="rounded-3xl bg-gradient-to-br from-orange-500/[0.08] to-white/[0.02] border border-orange-400/10 p-5 md:p-7">
-
-                <p className="text-xs text-orange-400 font-bold uppercase tracking-widest">
-                  Discipline
-                </p>
-
-                <h2 className="text-xl font-black mt-1">
-                  Current Streak
-                </h2>
-
-                <p className="text-sm text-slate-600 mt-1">
-                  Latest consecutive results
-                </p>
-
-
-                <div className="mt-8">
-
-                  <p className="text-7xl font-black text-orange-400">
-                    {currentStreak.count}
-                  </p>
-
-                  <p className="text-lg font-bold text-slate-400 mt-2">
-                    {currentStreak.type}
-                    {currentStreak.count === 1
-                      ? " trade"
-                      : " trades"}
-                  </p>
-
-
-                  <div className="mt-7 h-2 bg-white/5 rounded-full overflow-hidden">
-
-                    <div
-                      className="h-full bg-gradient-to-r from-orange-500 to-yellow-400 rounded-full"
-                      style={{
-                        width:
-                          Math.min(
-                            currentStreak.count * 15,
-                            100
-                          ) + "%",
-                      }}
-                    />
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* MONTHLY */}
-
-            <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-8">
-
-              <div className="mb-7">
-
-                <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                  History
-                </p>
-
-                <h2 className="text-xl font-black mt-1">
-                  Monthly Performance
-                </h2>
-
-                <p className="text-sm text-slate-600 mt-1">
-                  P&L grouped by month
-                </p>
-
-              </div>
-
-
-              {monthlyPerformance.length === 0 ? (
-
-                <div className="text-center py-10 text-slate-600">
-                  No monthly data available
-                </div>
-
-              ) : (
-
-                <div className="space-y-5">
-
-                  {monthlyPerformance.map((item) => {
-
-                    const maxValue = Math.max(
-                      ...monthlyPerformance.map((x) =>
-                        Math.abs(x.value)
-                      ),
-                      1
-                    );
-
-                    const width =
-                      (Math.abs(item.value) /
-                        maxValue) *
-                      100;
-
-                    return (
-                      <div key={item.month}>
-
-                        <div className="flex justify-between mb-2">
-
-                          <span className="text-sm text-slate-400">
-                            {formatMonth(item.month)}
-                          </span>
-
-                          <span
-                            className={
-                              "text-sm font-black " +
-                              (item.value >= 0
-                                ? "text-emerald-400"
-                                : "text-red-400")
-                            }
-                          >
-                            {item.value >= 0 ? "+" : ""}
-                            {item.value.toFixed(2)}
-                          </span>
-
-                        </div>
-
-
-                        <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-
-                          <div
-                            className={
-                              "h-full rounded-full transition-all " +
-                              (item.value >= 0
-                                ? "bg-gradient-to-r from-emerald-600 to-emerald-300"
-                                : "bg-gradient-to-r from-red-600 to-red-300")
-                            }
-                            style={{
-                              width:
-                                Math.max(width, 3) +
-                                "%",
-                            }}
-                          />
-
-                        </div>
-
-                      </div>
-                    );
-                  })}
-
-                </div>
-
-              )}
-
-            </div>
-
-          </section>
-
-
-          {/* TRADES */}
-
-          <section id="trades-section">
-
-            {/* ADD TRADE */}
-
-            <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7 mb-6">
-
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-7">
-
-                <div>
-
-                  <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                    Trade Management
-                  </p>
-
-                  <h2 className="text-2xl font-black mt-1">
-                    {editingId !== null
-                      ? "Edit Trade"
-                      : "Add New Trade"}
-                  </h2>
-
-                  <p className="text-sm text-slate-600 mt-1">
-                    Record your setup and result
-                  </p>
-
-                </div>
-
-
-                {rr && (
-
-                  <div className="px-5 py-4 rounded-2xl bg-cyan-400/10 border border-cyan-400/20">
-
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">
-                      Risk : Reward
-                    </p>
-
-                    <p className="text-2xl font-black text-cyan-400 mt-1">
-                      1 : {rr}
-                    </p>
-
-                  </div>
-
-                )}
-
-              </div>
-
-
-              {/* BUY / SELL */}
-
-              <div className="grid grid-cols-2 gap-3 mb-5">
-
-                <button
-                  onClick={() => setType("BUY")}
-                  className={
-                    "py-3 rounded-xl font-bold border transition " +
-                    (type === "BUY"
-                      ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-400"
-                      : "bg-white/[0.02] border-white/10 text-slate-500")
-                  }
-                >
-                  ↗ BUY
-                </button>
-
-
-                <button
-                  onClick={() => setType("SELL")}
-                  className={
-                    "py-3 rounded-xl font-bold border transition " +
-                    (type === "SELL"
-                      ? "bg-red-500/15 border-red-400/40 text-red-400"
-                      : "bg-white/[0.02] border-white/10 text-slate-500")
-                  }
-                >
-                  ↘ SELL
-                </button>
-
-              </div>
-
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-                {[
-                  ["Entry", entry, setEntry],
-                  ["Stop Loss", sl, setSl],
-                  ["Take Profit", tp, setTp],
-                  ["Exit", exit, setExit],
-                  ["Lot Size", lot, setLot],
-                  ["Risk", risk, setRisk],
-                  ["P&L", pnl, setPnl],
-                ].map(
-                  ([label, value, setter]) => (
-
-                    <div key={String(label)}>
-
-                      <label className="text-xs text-slate-500 uppercase tracking-wider">
-                        {String(label)}
-                      </label>
-
-                      <input
-                        type="number"
-                        value={String(value)}
-                        onChange={(e) =>
-                          (
-                            setter as Dispatch<
-                              SetStateAction<string>
-                            >
-                          )(e.target.value)
-                        }
-                        placeholder={String(label)}
-                        className="w-full mt-2 bg-[#080d19] border border-white/10 rounded-xl p-3.5 outline-none focus:border-cyan-400 transition"
-                      />
-
-                    </div>
-
-                  )
-                )}
-
-
-                {/* PAIR */}
-
-                <div>
-
-                  <label className="text-xs text-slate-500 uppercase tracking-wider">
-                    Pair
-                  </label>
-
-                  <select
-                    value={pair}
-                    onChange={(e) =>
-                      setPair(e.target.value)
-                    }
-                    className="w-full mt-2 bg-[#080d19] border border-white/10 rounded-xl p-3.5 outline-none focus:border-cyan-400"
-                  >
-
-                    <option>XAUUSD</option>
-                    <option>EURUSD</option>
-                    <option>GBPUSD</option>
-                    <option>BTCUSD</option>
-                    <option>USDJPY</option>
-
-                  </select>
-
-                </div>
-
-              </div>
-
-
-              {/* SAVE */}
-
-              <div className="flex gap-3 mt-6">
-
-                <button
-                  onClick={saveTrade}
-                  className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 font-black shadow-xl shadow-cyan-500/10 hover:scale-[1.01] transition"
-                >
-                  {editingId !== null
-                    ? "✓ Update Trade"
-                    : "+ Save Trade"}
-                </button>
-
-
-                {editingId !== null && (
-
-                  <button
-                    onClick={clearForm}
-                    className="px-6 py-4 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 transition"
-                  >
-                    Cancel
-                  </button>
-
-                )}
-
-              </div>
-
-            </div>
-
-
-            {/* HISTORY */}
-
-            <div className="rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7">
-
-              <div className="flex items-center justify-between mb-6">
-
-                <div>
-
-                  <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-                    Records
-                  </p>
-
-                  <h2 className="text-2xl font-black mt-1">
-                    Trade History
-                  </h2>
-
-                </div>
-
-
-                <div className="px-3 py-2 rounded-xl bg-white/5 text-xs text-slate-500">
-                  {filteredTrades.length} records
-                </div>
-
-              </div>
-
-
-              {filteredTrades.length === 0 ? (
-
-                <div className="text-center py-12 text-slate-600">
-                  No trades found.
-                </div>
-
-              ) : (
-
-                <div className="overflow-x-auto">
-
-                  <table className="w-full text-sm">
-
-                    <thead>
-
-                      <tr className="border-b border-white/10 text-slate-600">
-
-                        <th className="text-left p-3">
-                          Pair
-                        </th>
-
-                        <th className="text-left p-3">
-                          Type
-                        </th>
-
-                        <th className="text-left p-3">
-                          Entry
-                        </th>
-
-                        <th className="text-left p-3">
-                          SL
-                        </th>
-
-                        <th className="text-left p-3">
-                          TP
-                        </th>
-
-                        <th className="text-left p-3">
-                          Exit
-                        </th>
-
-                        <th className="text-left p-3">
-                          Lot
-                        </th>
-
-                        <th className="text-left p-3">
-                          Risk
-                        </th>
-
-                        <th className="text-left p-3">
-                          P&L
-                        </th>
-
-                        <th className="text-left p-3">
-                          Action
-                        </th>
-
-                      </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                      {filteredTrades.map((trade) => (
-
-                        <tr
-                          key={trade.id}
-                          className="border-b border-white/5 hover:bg-white/[0.025] transition"
-                        >
-
-                          <td className="p-3 font-black">
-                            {trade.pair}
-                          </td>
-
-
-                          <td className="p-3">
-
-                            <span
-                              className={
-                                "px-3 py-1.5 rounded-full text-[10px] font-black " +
-                                (trade.type === "BUY"
-                                  ? "bg-emerald-400/10 text-emerald-400"
-                                  : "bg-red-400/10 text-red-400")
-                              }
-                            >
-                              {trade.type}
-                            </span>
-
-                          </td>
-
-
-                          <td className="p-3 text-slate-300">
-                            {trade.entry}
-                          </td>
-
-
-                          <td className="p-3 text-red-400">
-                            {trade.sl}
-                          </td>
-
-
-                          <td className="p-3 text-emerald-400">
-                            {trade.tp}
-                          </td>
-
-
-                          <td className="p-3 text-slate-300">
-                            {trade.exit}
-                          </td>
-
-
-                          <td className="p-3">
-                            {trade.lot}
-                          </td>
-
-
-                          <td className="p-3">
-                            {trade.risk}
-                          </td>
-
-
-                          <td
-                            className={
-                              "p-3 font-black " +
-                              (Number(trade.pnl) >= 0
-                                ? "text-emerald-400"
-                                : "text-red-400")
-                            }
-                          >
-                            {Number(trade.pnl) >= 0
-                              ? "+"
-                              : ""}
-                            {Number(trade.pnl).toFixed(2)}
-                          </td>
-
-
-                          <td className="p-3">
-
-                            <div className="flex gap-3">
-
-                              <button
-                                onClick={() =>
-                                  editTrade(trade)
-                                }
-                                className="text-cyan-400 hover:text-cyan-300 font-semibold"
-                              >
-                                Edit
-                              </button>
-
-
-                              <button
-                                onClick={() =>
-                                  deleteTrade(trade.id)
-                                }
-                                className="text-red-400 hover:text-red-300 font-semibold"
-                              >
-                                Delete
-                              </button>
-
-                            </div>
-
-                          </td>
-
-                        </tr>
-
-                      ))}
-
-                    </tbody>
-
-                  </table>
-
-                </div>
-
-              )}
-
-            </div>
-
-          </section>
-
-
-          {/* SETTINGS */}
-
-          <section
-            id="settings-section"
-            className="mt-6 rounded-3xl bg-white/[0.03] border border-white/10 p-5 md:p-7"
-          >
-
-            <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest">
-              System
-            </p>
-
-            <h2 className="text-2xl font-black mt-1">
-              Settings
-            </h2>
-
-            <p className="text-sm text-slate-600 mt-1">
-              Journal system information
-            </p>
-
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-7">
-
-              <div className="p-5 rounded-2xl bg-[#080d19] border border-white/10">
-
-                <p className="text-xs text-slate-600 uppercase">
-                  Database
-                </p>
-
-                <div className="flex items-center gap-2 mt-3">
-
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-
-                  <p className="font-black text-emerald-400">
-                    Connected
-                  </p>
-
-                </div>
-
-              </div>
-
-
-              <div className="p-5 rounded-2xl bg-[#080d19] border border-white/10">
-
-                <p className="text-xs text-slate-600 uppercase">
-                  Account
-                </p>
-
-                <p className="font-black text-cyan-400 mt-3 truncate">
-                  {userEmail}
-                </p>
-
-              </div>
-
-
-              <div className="p-5 rounded-2xl bg-[#080d19] border border-white/10">
-
-                <p className="text-xs text-slate-600 uppercase">
-                  Journal Status
-                </p>
-
-                <p className="font-black text-white mt-3">
-                  Private & Active
-                </p>
-
-              </div>
-
-            </div>
-
-          </section>
-
-
-          {/* FOOTER */}
-
-          <footer className="text-center py-10 text-xs text-slate-700">
-            Trade Journal • Private Trading Analytics
-          </footer>
-
-        </div>
-
+          }
+          transition={{
+            duration: 15,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="absolute -right-40 top-1/3 h-[500px] w-[500px] rounded-full bg-violet-500/[0.05] blur-[120px]"
+        />
+
+        <div className="absolute inset-0 opacity-[0.025] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:50px_50px]" />
       </div>
 
+      {/* Mobile header */}
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/[0.08] bg-[#06070a]/80 px-4 backdrop-blur-xl lg:hidden">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-lg"
+        >
+          ☰
+        </button>
+
+        <div className="text-center">
+          <p className="text-sm font-semibold">Trade Journal</p>
+          <p className="text-[9px] uppercase tracking-[0.2em] text-cyan-400">
+            Analytics
+          </p>
+        </div>
+
+        <div className="h-10 w-10 rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-center text-lg leading-10">
+          ●
+        </div>
+      </header>
+
+      {/* Mobile sidebar overlay */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm lg:hidden"
+            />
+
+            <motion.aside
+              initial={{ x: -300 }}
+              animate={{ x: 0 }}
+              exit={{ x: -300 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed bottom-0 left-0 top-0 z-[60] w-72 border-r border-white/[0.08] bg-[#0a0c10] p-5 lg:hidden"
+            >
+              <SidebarContent
+                activeSection={activeSection}
+                scrollTo={scrollTo}
+                userEmail={userEmail}
+                tradesCount={trades.length}
+                totalPnl={totalPnl}
+                logout={logout}
+              />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop sidebar */}
+      <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-64 border-r border-white/[0.07] bg-[#08090d]/90 p-5 backdrop-blur-2xl lg:block">
+        <SidebarContent
+          activeSection={activeSection}
+          scrollTo={scrollTo}
+          userEmail={userEmail}
+          tradesCount={trades.length}
+          totalPnl={totalPnl}
+          logout={logout}
+        />
+      </aside>
+
+      {/* Main */}
+      <div className="relative lg:ml-64">
+        <div className="mx-auto max-w-[1600px] px-4 pb-16 pt-24 sm:px-6 lg:px-10 lg:pt-10">
+          {/* Header */}
+          <motion.header
+            initial={{ opacity: 0, y: -15 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-center"
+          >
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-emerald-400">
+                  Journal online
+                </span>
+              </div>
+
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Good Trading<span className="text-cyan-400">.</span>
+              </h1>
+
+              <p className="mt-1 text-sm text-white/35">
+                Track your performance. Improve your process.
+              </p>
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                clearForm();
+                scrollTo("trades");
+              }}
+              className="group flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-black shadow-lg shadow-cyan-400/10 transition hover:bg-cyan-300"
+            >
+              <span className="text-lg transition-transform group-hover:rotate-90">
+                +
+              </span>
+              Add Trade
+            </motion.button>
+          </motion.header>
+
+          {/* Dashboard */}
+          <section id="dashboard" className="scroll-mt-8">
+            {/* Filters */}
+            <GlassCard className="mb-6 p-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-white/70">
+                    Performance Overview
+                  </p>
+                  <p className="mt-1 text-[11px] text-white/30">
+                    Analyze your selected trading data
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <select
+                    value={pairFilter}
+                    onChange={(e) => setPairFilter(e.target.value)}
+                    className="h-10 rounded-lg border border-white/[0.08] bg-black/30 px-2 text-xs text-white outline-none"
+                  >
+                    <option value="ALL">All Pairs</option>
+                    {availablePairs.map((pair) => (
+                      <option key={pair} value={pair}>
+                        {pair}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="h-10 rounded-lg border border-white/[0.08] bg-black/30 px-2 text-xs text-white outline-none"
+                  >
+                    <option value="ALL">All Types</option>
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+
+                  <select
+                    value={monthFilter}
+                    onChange={(e) => setMonthFilter(e.target.value)}
+                    className="h-10 rounded-lg border border-white/[0.08] bg-black/30 px-2 text-xs text-white outline-none"
+                  >
+                    <option value="ALL">All Months</option>
+                    {availableMonths.map((month) => (
+                      <option key={month} value={month}>
+                        {formatMonth(month)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </GlassCard>
+
+            {/* Main stats */}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                title="Total P&L"
+                value={totalPnl}
+                prefix={totalPnl >= 0 ? "+$" : "-$"}
+                icon="↗"
+                color={totalPnl >= 0 ? "green" : "orange"}
+                delay={0.05}
+              />
+
+              <StatCard
+                title="Win Rate"
+                value={winRate}
+                suffix="%"
+                icon="%"
+                color="cyan"
+                delay={0.1}
+              />
+
+              <StatCard
+                title="Profit Factor"
+                value={profitFactor}
+                icon="◆"
+                color="purple"
+                delay={0.15}
+              />
+
+              <StatCard
+                title="Max Drawdown"
+                value={maxDrawdown}
+                prefix="-$"
+                icon="↓"
+                color="orange"
+                delay={0.2}
+              />
+            </div>
+
+            {/* Secondary stats */}
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ["Winning Trades", wins.length, "↑", "text-emerald-300"],
+                ["Losing Trades", losses.length, "↓", "text-rose-300"],
+                ["Average Win", averageWin, "+$", "text-cyan-300"],
+                ["Average Loss", averageLoss, "-$", "text-orange-300"],
+              ].map(([title, value, icon, textColor], index) => (
+                <GlassCard key={String(title)} delay={0.25 + index * 0.05} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-white/30">
+                        {String(title)}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {typeof value === "number" && (
+                          <AnimatedNumber
+                            value={value}
+                            prefix={
+                              title === "Average Win"
+                                ? "+$"
+                                : title === "Average Loss"
+                                ? "-$"
+                                : ""
+                            }
+                          />
+                        )}
+                      </p>
+                    </div>
+
+                    <span className={`text-lg ${textColor}`}>{String(icon)}</span>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          </section>
+
+          {/* Analytics */}
+          <section id="analytics" className="mt-14 scroll-mt-8">
+            <SectionTitle
+              eyebrow="Performance"
+              title="Analytics"
+              description="A visual overview of your trading performance."
+            />
+
+            <div className="grid gap-5 xl:grid-cols-3">
+              {/* Equity */}
+              <GlassCard className="xl:col-span-2 p-5 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      Equity Curve
+                    </p>
+                    <p className="mt-1 text-xs text-white/30">
+                      Cumulative P&L
+                    </p>
+                  </div>
+
+                  <div
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                      totalPnl >= 0
+                        ? "bg-emerald-400/10 text-emerald-300"
+                        : "bg-rose-400/10 text-rose-300"
+                    }`}
+                  >
+                    {totalPnl >= 0 ? "+" : "-"}$
+                    {Math.abs(totalPnl).toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="mt-8 h-64">
+                  {equityCurve.length === 0 ? (
+                    <div className="flex h-full items-center justify-center text-sm text-white/25">
+                      Add trades to build your equity curve
+                    </div>
+                  ) : (
+                    <div className="relative h-full">
+                      <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-white/[0.08]" />
+
+                      <div className="flex h-full items-end gap-1 sm:gap-2">
+                        {equityCurve.map((value, index) => {
+                          const min = Math.min(...equityCurve, 0);
+                          const max = Math.max(...equityCurve, 0);
+                          const range = Math.max(max - min, 1);
+
+                          const normalized =
+                            ((value - min) / range) * 88 + 6;
+
+                          return (
+                            <motion.div
+                              key={index}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{
+                                height: `${normalized}%`,
+                                opacity: 1,
+                              }}
+                              transition={{
+                                duration: 0.6,
+                                delay: index * 0.035,
+                              }}
+                              whileHover={{
+                                scaleX: 1.5,
+                                opacity: 0.85,
+                              }}
+                              className={`min-w-[3px] flex-1 rounded-t-md ${
+                                value >= 0
+                                  ? "bg-gradient-to-t from-cyan-500/30 to-cyan-300"
+                                  : "bg-gradient-to-t from-rose-500/30 to-rose-300"
+                              }`}
+                              title={`$${value.toFixed(2)}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </GlassCard>
+
+              {/* Win Loss */}
+              <GlassCard className="p-6">
+                <p className="text-sm font-semibold text-white">
+                  Win / Loss
+                </p>
+                <p className="mt-1 text-xs text-white/30">
+                  Trade distribution
+                </p>
+
+                <div className="flex flex-col items-center py-7">
+                  <div
+                    className="relative flex h-44 w-44 items-center justify-center rounded-full"
+                    style={{
+                      background:
+                        filteredTrades.length === 0
+                          ? "conic-gradient(rgba(255,255,255,.06) 0deg 360deg)"
+                          : `conic-gradient(#34d399 0deg ${
+                              winRate * 3.6
+                            }deg, #fb7185 ${
+                              winRate * 3.6
+                            }deg 360deg)`,
+                    }}
+                  >
+                    <div className="flex h-32 w-32 flex-col items-center justify-center rounded-full bg-[#0b0d11]">
+                      <span className="text-3xl font-semibold">
+                        <AnimatedNumber
+                          value={winRate}
+                          decimals={0}
+                          suffix="%"
+                        />
+                      </span>
+                      <span className="mt-1 text-[10px] uppercase tracking-widest text-white/30">
+                        Win rate
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-7 grid w-full grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-emerald-400/[0.06] p-3">
+                      <p className="text-xs text-white/40">Wins</p>
+                      <p className="mt-1 text-lg font-semibold text-emerald-300">
+                        {wins.length}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-rose-400/[0.06] p-3">
+                      <p className="text-xs text-white/40">Losses</p>
+                      <p className="mt-1 text-lg font-semibold text-rose-300">
+                        {losses.length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </GlassCard>
+            </div>
+
+            {/* Monthly + streak */}
+            <div className="mt-5 grid gap-5 lg:grid-cols-3">
+              <GlassCard className="lg:col-span-2 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Monthly Performance</p>
+                    <p className="mt-1 text-xs text-white/30">
+                      Last 6 active months
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 space-y-5">
+                  {monthlyPerformance.length === 0 ? (
+                    <p className="py-10 text-center text-sm text-white/25">
+                      No monthly data yet
+                    </p>
+                  ) : (
+                    monthlyPerformance.map(([month, value], index) => {
+                      const positive = value >= 0;
+                      const width =
+                        (Math.abs(value) / maxMonthly) * 100;
+
+                      return (
+                        <div key={month}>
+                          <div className="mb-2 flex items-center justify-between text-xs">
+                            <span className="text-white/45">
+                              {formatMonth(month)}
+                            </span>
+                            <span
+                              className={
+                                positive
+                                  ? "text-emerald-300"
+                                  : "text-rose-300"
+                              }
+                            >
+                              {positive ? "+" : "-"}$
+                              {Math.abs(value).toFixed(2)}
+                            </span>
+                          </div>
+
+                          <div className="h-2 overflow-hidden rounded-full bg-white/[0.05]">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${width}%` }}
+                              transition={{
+                                duration: 0.8,
+                                delay: index * 0.08,
+                              }}
+                              className={`h-full rounded-full ${
+                                positive
+                                  ? "bg-gradient-to-r from-emerald-500/40 to-emerald-300"
+                                  : "bg-gradient-to-r from-rose-500/40 to-rose-300"
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </GlassCard>
+
+              <GlassCard className="flex flex-col justify-between p-6">
+                <div>
+                  <p className="text-sm font-semibold">Current Streak</p>
+                  <p className="mt-1 text-xs text-white/30">
+                    Consecutive recent trades
+                  </p>
+                </div>
+
+                <div className="py-8 text-center">
+                  <motion.div
+                    key={`${currentStreak.type}-${currentStreak.value}`}
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className={`text-6xl font-bold ${
+                      currentStreak.type === "WIN"
+                        ? "text-emerald-300"
+                        : currentStreak.type === "LOSS"
+                        ? "text-rose-300"
+                        : "text-white/30"
+                    }`}
+                  >
+                    {currentStreak.value}
+                  </motion.div>
+
+                  <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/30">
+                    {currentStreak.type === "WIN"
+                      ? "Winning streak"
+                      : currentStreak.type === "LOSS"
+                      ? "Losing streak"
+                      : "No streak"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 text-center text-xs text-white/30">
+                  Stay focused on process, not individual outcomes.
+                </div>
+              </GlassCard>
+            </div>
+          </section>
+
+          {/* Trades */}
+          <section id="trades" className="mt-14 scroll-mt-8">
+            <SectionTitle
+              eyebrow="Journal"
+              title="Trade Management"
+              description="Record and review every trade."
+            />
+
+            <div className="grid gap-5 xl:grid-cols-5">
+              {/* Form */}
+              <GlassCard className="xl:col-span-2">
+                <div className="border-b border-white/[0.07] p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {editingId ? "Edit Trade" : "Add New Trade"}
+                      </p>
+                      <p className="mt-1 text-xs text-white/30">
+                        Keep your journal consistent.
+                      </p>
+                    </div>
+
+                    {editingId && (
+                      <button
+                        onClick={clearForm}
+                        className="text-xs text-white/40 transition hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-5 p-6">
+                  <label className="block">
+                    <span className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-white/40">
+                      Pair
+                    </span>
+
+                    <input
+                      value={form.pair}
+                      onChange={(e) =>
+                        updateForm("pair", e.target.value.toUpperCase())
+                      }
+                      placeholder="EURUSD"
+                      className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/50"
+                    />
+                  </label>
+
+                  <div>
+                    <span className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-white/40">
+                      Direction
+                    </span>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["BUY", "SELL"] as const).map((type) => (
+                        <motion.button
+                          key={type}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={() => updateForm("type", type)}
+                          className={`h-11 rounded-xl border text-sm font-semibold transition ${
+                            form.type === type
+                              ? type === "BUY"
+                                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                                : "border-rose-400/30 bg-rose-400/10 text-rose-300"
+                              : "border-white/[0.08] bg-white/[0.02] text-white/35 hover:bg-white/[0.05]"
+                          }`}
+                        >
+                          {type}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Entry"
+                      value={form.entry}
+                      onChange={(v) => updateForm("entry", v)}
+                    />
+
+                    <Input
+                      label="Stop Loss"
+                      value={form.sl}
+                      onChange={(v) => updateForm("sl", v)}
+                    />
+
+                    <Input
+                      label="Take Profit"
+                      value={form.tp}
+                      onChange={(v) => updateForm("tp", v)}
+                    />
+
+                    <Input
+                      label="Exit"
+                      value={form.exit}
+                      onChange={(v) => updateForm("exit", v)}
+                    />
+
+                    <Input
+                      label="Lot Size"
+                      value={form.lot}
+                      onChange={(v) => updateForm("lot", v)}
+                    />
+
+                    <Input
+                      label="Risk"
+                      value={form.risk}
+                      onChange={(v) => updateForm("risk", v)}
+                    />
+                  </div>
+
+                  <Input
+                    label="P&L"
+                    value={form.pnl}
+                    onChange={(v) => updateForm("pnl", v)}
+                    placeholder="e.g. 25.50 or -12.30"
+                  />
+
+                  <AnimatePresence>
+                    {rr !== null && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0, y: -5 }}
+                        animate={{ opacity: 1, height: "auto", y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -5 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="flex items-center justify-between rounded-xl border border-cyan-400/10 bg-cyan-400/[0.05] p-3">
+                          <span className="text-xs text-white/40">
+                            Calculated Risk / Reward
+                          </span>
+
+                          <span className="font-semibold text-cyan-300">
+                            1 : {rr.toFixed(2)}
+                          </span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={saving}
+                    onClick={saveTrade}
+                    className="h-12 w-full rounded-xl bg-cyan-400 font-semibold text-black shadow-lg shadow-cyan-400/10 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saving
+                      ? "Saving..."
+                      : editingId
+                      ? "Update Trade"
+                      : "Save Trade"}
+                  </motion.button>
+                </div>
+              </GlassCard>
+
+              {/* Trade history */}
+              <GlassCard className="xl:col-span-3">
+                <div className="flex items-center justify-between border-b border-white/[0.07] p-6">
+                  <div>
+                    <p className="text-sm font-semibold">Trade History</p>
+                    <p className="mt-1 text-xs text-white/30">
+                      {filteredTrades.length} trades shown
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-xs text-white/40">
+                    {filteredTrades.length} / {trades.length}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {filteredTrades.length === 0 ? (
+                    <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] text-2xl">
+                        ↗
+                      </div>
+                      <p className="mt-4 text-sm font-medium text-white/60">
+                        No trades found
+                      </p>
+                      <p className="mt-1 max-w-xs text-xs text-white/25">
+                        Add your first trade to start building your journal.
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="w-full min-w-[760px] text-left">
+                      <thead>
+                        <tr className="border-b border-white/[0.06] text-[10px] uppercase tracking-wider text-white/25">
+                          <th className="px-6 py-4">Pair</th>
+                          <th className="px-4 py-4">Type</th>
+                          <th className="px-4 py-4">Entry</th>
+                          <th className="px-4 py-4">SL</th>
+                          <th className="px-4 py-4">TP</th>
+                          <th className="px-4 py-4">Exit</th>
+                          <th className="px-4 py-4">P&L</th>
+                          <th className="px-4 py-4">Action</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        <AnimatePresence initial={false}>
+                          {filteredTrades
+                            .slice()
+                            .reverse()
+                            .map((trade, index) => {
+                              const pnl = Number(trade.pnl || 0);
+
+                              return (
+                                <motion.tr
+                                  layout
+                                  key={trade.id}
+                                  initial={{
+                                    opacity: 0,
+                                    x: 20,
+                                  }}
+                                  animate={{
+                                    opacity: 1,
+                                    x: 0,
+                                  }}
+                                  exit={{
+                                    opacity: 0,
+                                    x: -20,
+                                  }}
+                                  transition={{
+                                    delay: index * 0.025,
+                                  }}
+                                  className="border-b border-white/[0.04] transition hover:bg-white/[0.025]"
+                                >
+                                  <td className="px-6 py-4">
+                                    <span className="font-semibold text-white">
+                                      {trade.pair}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <span
+                                      className={`rounded-lg px-2 py-1 text-[10px] font-semibold ${
+                                        trade.type === "BUY"
+                                          ? "bg-emerald-400/10 text-emerald-300"
+                                          : "bg-rose-400/10 text-rose-300"
+                                      }`}
+                                    >
+                                      {trade.type || "-"}
+                                    </span>
+                                  </td>
+
+                                  <td className="px-4 py-4 text-xs text-white/50">
+                                    {trade.entry ?? "-"}
+                                  </td>
+
+                                  <td className="px-4 py-4 text-xs text-white/50">
+                                    {trade.sl ?? "-"}
+                                  </td>
+
+                                  <td className="px-4 py-4 text-xs text-white/50">
+                                    {trade.tp ?? "-"}
+                                  </td>
+
+                                  <td className="px-4 py-4 text-xs text-white/50">
+                                    {trade.exit ?? "-"}
+                                  </td>
+
+                                  <td
+                                    className={`px-4 py-4 text-xs font-semibold ${
+                                      pnl > 0
+                                        ? "text-emerald-300"
+                                        : pnl < 0
+                                        ? "text-rose-300"
+                                        : "text-white/40"
+                                    }`}
+                                  >
+                                    {pnl > 0 ? "+" : ""}
+                                    {pnl.toFixed(2)}
+                                  </td>
+
+                                  <td className="px-4 py-4">
+                                    <div className="flex gap-1">
+                                      <motion.button
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => editTrade(trade)}
+                                        className="rounded-lg px-2 py-1.5 text-xs text-white/40 transition hover:bg-white/[0.06] hover:text-white"
+                                      >
+                                        Edit
+                                      </motion.button>
+
+                                      <motion.button
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => deleteTrade(trade.id)}
+                                        className="rounded-lg px-2 py-1.5 text-xs text-rose-300/50 transition hover:bg-rose-400/10 hover:text-rose-300"
+                                      >
+                                        Delete
+                                      </motion.button>
+                                    </div>
+                                  </td>
+                                </motion.tr>
+                              );
+                            })}
+                        </AnimatePresence>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </GlassCard>
+            </div>
+          </section>
+
+          {/* Settings */}
+          <section id="settings" className="mt-14 scroll-mt-8">
+            <SectionTitle
+              eyebrow="System"
+              title="Settings"
+              description="Your journal account and connection status."
+            />
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <GlassCard className="p-6">
+                <p className="text-sm font-semibold">Database</p>
+
+                <div className="mt-5 space-y-3">
+                  <StatusRow
+                    label="Supabase"
+                    value="Connected"
+                    good
+                  />
+                  <StatusRow
+                    label="Trade storage"
+                    value="Active"
+                    good
+                  />
+                  <StatusRow
+                    label="User isolation"
+                    value="Enabled"
+                    good
+                  />
+                </div>
+              </GlassCard>
+
+              <GlassCard className="p-6">
+                <p className="text-sm font-semibold">Account</p>
+
+                <div className="mt-5">
+                  <p className="text-xs text-white/30">Signed in as</p>
+                  <p className="mt-1 break-all text-sm text-white/70">
+                    {userEmail}
+                  </p>
+
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={logout}
+                    className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-2.5 text-xs font-medium text-rose-300 transition hover:bg-rose-400/10"
+                  >
+                    Sign out
+                  </motion.button>
+                </div>
+              </GlassCard>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="mt-16 border-t border-white/[0.06] pt-6 text-center">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-white/20">
+              Trade Journal • Professional Analytics
+            </p>
+          </footer>
+        </div>
+      </div>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{
+              opacity: 0,
+              y: 30,
+              scale: 0.95,
+            }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              scale: 1,
+            }}
+            exit={{
+              opacity: 0,
+              y: 20,
+              scale: 0.95,
+            }}
+            className="fixed bottom-5 left-1/2 z-[100] -translate-x-1/2"
+          >
+            <div className="flex items-center gap-3 rounded-2xl border border-white/[0.1] bg-[#11141a]/95 px-5 py-3 text-sm text-white shadow-2xl shadow-black/50 backdrop-blur-xl">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-300">
+                ✓
+              </span>
+              {toast}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
+  );
+}
+
+function StatusRow({
+  label,
+  value,
+  good,
+}: {
+  label: string;
+  value: string;
+  good?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-white/[0.02] p-3">
+      <span className="text-xs text-white/40">{label}</span>
+
+      <span className="flex items-center gap-2 text-xs text-white/60">
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${
+            good ? "bg-emerald-400" : "bg-orange-400"
+          }`}
+        />
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function SidebarContent({
+  activeSection,
+  scrollTo,
+  userEmail,
+  tradesCount,
+  totalPnl,
+  logout,
+}: {
+  activeSection: string;
+  scrollTo: (id: string) => void;
+  userEmail: string;
+  tradesCount: number;
+  totalPnl: number;
+  logout: () => void;
+}) {
+  return (
+    <div className="flex h-full flex-col">
+      {/* Logo */}
+      <div className="mb-10 flex items-center gap-3">
+        <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-cyan-400 text-black shadow-lg shadow-cyan-400/10">
+          <motion.div
+            animate={{
+              rotate: 360,
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className="absolute h-20 w-20 rounded-full border-2 border-dashed border-black/20"
+          />
+
+          <span className="relative text-lg font-bold">T</span>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold">Trade Journal</p>
+          <p className="text-[9px] uppercase tracking-[0.18em] text-cyan-400">
+            Professional
+          </p>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div>
+        <p className="mb-3 px-3 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/20">
+          Workspace
+        </p>
+
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const active = activeSection === item.id;
+
+            return (
+              <motion.button
+                key={item.id}
+                whileHover={{ x: 3 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => scrollTo(item.id)}
+                className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${
+                  active
+                    ? "bg-cyan-400/[0.08] text-cyan-300"
+                    : "text-white/35 hover:bg-white/[0.035] hover:text-white/70"
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="active-nav"
+                    className="absolute left-0 h-5 w-0.5 rounded-full bg-cyan-400"
+                  />
+                )}
+
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/[0.03] text-sm">
+                  {item.icon}
+                </span>
+
+                {item.label}
+              </motion.button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Account */}
+      <div className="mt-auto">
+        <div className="mb-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-violet-400/30 text-xs font-semibold">
+              {userEmail?.charAt(0).toUpperCase() || "U"}
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white/70">
+                My Account
+              </p>
+              <p className="truncate text-[10px] text-white/25">
+                {userEmail}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-black/20 p-2.5">
+              <p className="text-[9px] uppercase text-white/20">Trades</p>
+              <p className="mt-1 text-sm font-semibold">{tradesCount}</p>
+            </div>
+
+            <div className="rounded-xl bg-black/20 p-2.5">
+              <p className="text-[9px] uppercase text-white/20">P&L</p>
+              <p
+                className={`mt-1 text-sm font-semibold ${
+                  totalPnl >= 0
+                    ? "text-emerald-300"
+                    : "text-rose-300"
+                }`}
+              >
+                {totalPnl >= 0 ? "+" : "-"}$
+                {Math.abs(totalPnl).toFixed(2)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={logout}
+          className="w-full rounded-xl px-3 py-2.5 text-left text-xs text-white/30 transition hover:bg-white/[0.035] hover:text-white/70"
+        >
+          ↪ Sign out
+        </button>
+      </div>
+    </div>
   );
 }
