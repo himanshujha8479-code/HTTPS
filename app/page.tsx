@@ -162,7 +162,7 @@ function StatCard({
   icon: string;
 }) {
   return (
-    <GlassCard className="relative overflow-hidden p-5">
+    <GlassCard className="relative overflow-hidden p-4">
       <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-cyan-400/[0.06] blur-2xl" />
 
       <div className="flex items-start justify-between">
@@ -184,11 +184,11 @@ function StatCard({
           </div>
 
           {subtitle && (
-            <p className="mt-2 text-xs text-zinc-500">{subtitle}</p>
+            <p className="mt-1 text-[11px] text-zinc-500">{subtitle}</p>
           )}
         </div>
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04] text-lg text-zinc-300">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.04] text-sm text-zinc-300">
           {icon}
         </div>
       </div>
@@ -205,10 +205,10 @@ function SectionTitle({
 }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold tracking-tight text-white">
+      <h2 className="text-base font-semibold tracking-tight text-white">
         {title}
       </h2>
-      {subtitle && <p className="mt-1 text-sm text-zinc-500">{subtitle}</p>}
+      {subtitle && <p className="mt-0.5 text-xs text-zinc-500">{subtitle}</p>}
     </div>
   );
 }
@@ -228,7 +228,7 @@ function EquityChart({ trades }: { trades: Trade[] }) {
   }, [trades]);
 
   const width = 800;
-  const height = 270;
+  const height = 230;
   const paddingX = 18;
   const paddingY = 25;
 
@@ -258,7 +258,7 @@ function EquityChart({ trades }: { trades: Trade[] }) {
   const finalValue = points[points.length - 1] ?? 0;
 
   return (
-    <GlassCard className="overflow-hidden p-5">
+    <GlassCard className="overflow-hidden p-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
@@ -278,7 +278,7 @@ function EquityChart({ trades }: { trades: Trade[] }) {
         </div>
       </div>
 
-      <div className="mt-6 h-[270px] w-full">
+      <div className="mt-4 h-[230px] w-full">
         {trades.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-zinc-600">
             Add trades to see your equity curve
@@ -366,13 +366,13 @@ function WinLossCircle({
   const dash = (winRate / 100) * circumference;
 
   return (
-    <GlassCard className="p-5">
+    <GlassCard className="p-4">
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
         Performance
       </p>
 
-      <div className="mt-5 flex items-center justify-center">
-        <div className="relative h-44 w-44">
+      <div className="mt-3 flex items-center justify-center">
+        <div className="relative h-36 w-36">
           <svg
             viewBox="0 0 180 180"
             className="h-full w-full -rotate-90"
@@ -403,7 +403,7 @@ function WinLossCircle({
           </svg>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-white">
+            <span className="text-2xl font-bold text-white">
               <AnimatedNumber value={winRate} decimals={1} suffix="%" />
             </span>
             <span className="mt-1 text-xs text-zinc-500">Win Rate</span>
@@ -411,15 +411,15 @@ function WinLossCircle({
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/[0.05] bg-white/[0.025] p-3">
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lg border border-white/[0.05] bg-white/[0.025] p-2.5">
           <p className="text-xs text-zinc-500">Wins</p>
-          <p className="mt-1 font-semibold text-emerald-300">{wins}</p>
+          <p className="mt-0.5 text-sm font-semibold text-emerald-300">{wins}</p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.05] bg-white/[0.025] p-3">
+        <div className="rounded-lg border border-white/[0.05] bg-white/[0.025] p-2.5">
           <p className="text-xs text-zinc-500">Losses</p>
-          <p className="mt-1 font-semibold text-rose-300">{losses}</p>
+          <p className="mt-0.5 text-sm font-semibold text-rose-300">{losses}</p>
         </div>
       </div>
     </GlassCard>
@@ -450,7 +450,7 @@ function Input({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-300/40 focus:bg-white/[0.035]"
+        className="h-10 w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none transition placeholder:text-zinc-700 focus:border-cyan-300/40 focus:bg-white/[0.035]"
       />
     </label>
   );
@@ -812,10 +812,10 @@ export default function Home() {
         <div className="absolute right-[-5%] top-[25%] h-96 w-96 rounded-full bg-emerald-400/[0.025] blur-[120px]" />
       </div>
 
-      <aside className="fixed left-0 top-0 z-30 hidden h-screen w-64 border-r border-white/[0.06] bg-[#080a0f]/90 px-5 py-6 backdrop-blur-2xl lg:block">
+      <aside className="fixed left-0 top-0 z-30 hidden h-screen w-56 border-r border-white/[0.06] bg-[#080a0f]/90 px-5 py-6 backdrop-blur-2xl lg:block">
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 px-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] text-lg text-cyan-200">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-300/[0.08] text-sm text-cyan-200">
               ◈
             </div>
 
@@ -829,14 +829,14 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-10 space-y-2">
+          <div className="mt-7 space-y-1">
             {navItems.map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className="group flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
+                className="group flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-zinc-400 transition hover:bg-white/[0.04] hover:text-white"
               >
-                <span className="text-lg text-zinc-500 transition group-hover:text-cyan-300">
+                <span className="text-sm text-zinc-500 transition group-hover:text-cyan-300">
                   {item.icon}
                 </span>
                 {item.label}
@@ -845,9 +845,9 @@ export default function Home() {
 
             <button
               onClick={openAddTrade}
-              className="mt-3 flex w-full items-center gap-3 rounded-xl border border-cyan-300/10 bg-cyan-300/[0.07] px-3 py-3 text-sm text-cyan-100 transition hover:bg-cyan-300/[0.12]"
+              className="mt-2 flex w-full items-center gap-2.5 rounded-lg border border-cyan-300/10 bg-cyan-300/[0.07] px-3 py-3 text-sm text-cyan-100 transition hover:bg-cyan-300/[0.12]"
             >
-              <span className="text-lg">＋</span>
+              <span className="text-sm">＋</span>
               Add Trade
             </button>
           </div>
@@ -859,7 +859,7 @@ export default function Home() {
 
             <button
               onClick={logout}
-              className="w-full rounded-xl px-3 py-3 text-left text-sm text-zinc-500 transition hover:bg-rose-300/[0.05] hover:text-rose-300"
+              className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-zinc-500 transition hover:bg-rose-300/[0.05] hover:text-rose-300"
             >
               ↪ Logout
             </button>
@@ -867,7 +867,7 @@ export default function Home() {
         </div>
       </aside>
 
-      <main className="relative lg:ml-64">
+      <main className="relative lg:ml-56">
         <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-[#07090d]/75 backdrop-blur-2xl">
           <div className="flex h-16 items-center justify-between px-5 sm:px-8">
             <div className="flex items-center gap-3">
@@ -896,16 +896,16 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1500px] px-5 py-7 sm:px-8 lg:px-10">
+        <div className="mx-auto max-w-[1500px] px-5 py-6 sm:px-7 lg:px-8">
           <section id="dashboard">
-            <div className="mb-7">
+            <div className="mb-5">
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-cyan-300/70">
                 Dashboard
               </p>
 
-              <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div className="mt-1.5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                 <div>
-                  <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                  <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                     Your trading performance
                   </h1>
                   <p className="mt-2 text-sm text-zinc-500">
@@ -913,14 +913,14 @@ export default function Home() {
                   </p>
                 </div>
 
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-2 text-xs text-zinc-500">
+                <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 text-[11px] text-zinc-500">
                   {filteredTrades.length} trade
                   {filteredTrades.length === 1 ? "" : "s"} in view
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="Total P&L"
                 value={
@@ -971,7 +971,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.7fr)]">
+            <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.7fr)]">
               <EquityChart trades={filteredTrades} />
 
               <WinLossCircle
@@ -980,7 +980,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="Average Win"
                 value={
@@ -1029,40 +1029,40 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <GlassCard className="p-5">
+            <div className="mt-3 grid gap-3 lg:grid-cols-3">
+              <GlassCard className="p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Total Profit
                 </p>
-                <p className="mt-3 text-2xl font-semibold text-emerald-300">
+                <p className="mt-2 text-xl font-semibold text-emerald-300">
                   +${stats.totalProfit.toFixed(2)}
                 </p>
               </GlassCard>
 
-              <GlassCard className="p-5">
+              <GlassCard className="p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Total Loss
                 </p>
-                <p className="mt-3 text-2xl font-semibold text-rose-300">
+                <p className="mt-2 text-xl font-semibold text-rose-300">
                   -${stats.totalLoss.toFixed(2)}
                 </p>
               </GlassCard>
 
-              <GlassCard className="p-5">
+              <GlassCard className="p-4">
                 <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
                   Largest Win / Loss
                 </p>
                 <div className="mt-3 flex gap-5">
                   <div>
                     <p className="text-xs text-zinc-600">Win</p>
-                    <p className="mt-1 font-semibold text-emerald-300">
+                    <p className="mt-0.5 text-sm font-semibold text-emerald-300">
                       +${stats.largestWin.toFixed(2)}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-zinc-600">Loss</p>
-                    <p className="mt-1 font-semibold text-rose-300">
+                    <p className="mt-0.5 text-sm font-semibold text-rose-300">
                       ${stats.largestLoss.toFixed(2)}
                     </p>
                   </div>
@@ -1071,10 +1071,10 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="history" className="mt-12 scroll-mt-24">
+          <section id="history" className="mt-9 scroll-mt-24">
             <GlassCard className="overflow-hidden">
-              <div className="border-b border-white/[0.06] p-5 sm:p-6">
-                <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+              <div className="border-b border-white/[0.06] p-4 sm:p-5">
+                <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
                   <SectionTitle
                     title={filterTitle}
                     subtitle="Review and manage your recorded trades."
@@ -1174,7 +1174,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 {recentTrades.length === 0 ? (
                   <div className="flex min-h-56 flex-col items-center justify-center px-6 text-center">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.025] text-xl text-zinc-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.025] text-base text-zinc-600">
                       ◫
                     </div>
 
@@ -1197,17 +1197,17 @@ export default function Home() {
                   <table className="w-full min-w-[950px] text-left">
                     <thead>
                       <tr className="border-b border-white/[0.05] text-[10px] uppercase tracking-[0.16em] text-zinc-600">
-                        <th className="px-5 py-4 font-medium">Pair</th>
-                        <th className="px-5 py-4 font-medium">Type</th>
-                        <th className="px-5 py-4 font-medium">Entry</th>
-                        <th className="px-5 py-4 font-medium">SL</th>
-                        <th className="px-5 py-4 font-medium">TP</th>
-                        <th className="px-5 py-4 font-medium">Exit</th>
-                        <th className="px-5 py-4 font-medium">Lot</th>
-                        <th className="px-5 py-4 font-medium">Risk</th>
-                        <th className="px-5 py-4 font-medium">P&L</th>
-                        <th className="px-5 py-4 font-medium">Date</th>
-                        <th className="px-5 py-4 font-medium">Action</th>
+                        <th className="px-4 py-3 font-medium">Pair</th>
+                        <th className="px-4 py-3 font-medium">Type</th>
+                        <th className="px-4 py-3 font-medium">Entry</th>
+                        <th className="px-4 py-3 font-medium">SL</th>
+                        <th className="px-4 py-3 font-medium">TP</th>
+                        <th className="px-4 py-3 font-medium">Exit</th>
+                        <th className="px-4 py-3 font-medium">Lot</th>
+                        <th className="px-4 py-3 font-medium">Risk</th>
+                        <th className="px-4 py-3 font-medium">P&L</th>
+                        <th className="px-4 py-3 font-medium">Date</th>
+                        <th className="px-4 py-3 font-medium">Action</th>
                       </tr>
                     </thead>
 
@@ -1248,27 +1248,27 @@ export default function Home() {
                               </span>
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-400">
+                            <td className="px-4 py-3 text-sm text-zinc-400">
                               {numberValue(trade.entry)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-500">
+                            <td className="px-4 py-3 text-sm text-zinc-500">
                               {numberValue(trade.sl)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-500">
+                            <td className="px-4 py-3 text-sm text-zinc-500">
                               {numberValue(trade.tp)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-400">
+                            <td className="px-4 py-3 text-sm text-zinc-400">
                               {numberValue(trade.exit)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-500">
+                            <td className="px-4 py-3 text-sm text-zinc-500">
                               {numberValue(trade.lot)}
                             </td>
 
-                            <td className="px-5 py-4 text-sm text-zinc-500">
+                            <td className="px-4 py-3 text-sm text-zinc-500">
                               {trade.risk !== null
                                 ? `$${numberValue(trade.risk)}`
                                 : "-"}
@@ -1286,7 +1286,7 @@ export default function Home() {
                               {pnl === 0 ? "$0.00" : money(pnl)}
                             </td>
 
-                            <td className="px-5 py-4 text-xs text-zinc-600">
+                            <td className="px-4 py-3 text-xs text-zinc-600">
                               {dateText(trade.created_at)}
                             </td>
 
@@ -1294,14 +1294,14 @@ export default function Home() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => openEditTrade(trade)}
-                                  className="rounded-lg border border-white/[0.06] px-2.5 py-1.5 text-xs text-zinc-500 transition hover:bg-white/[0.05] hover:text-white"
+                                  className="rounded-md border border-white/[0.06] px-2 py-1 text-[11px] text-zinc-500 transition hover:bg-white/[0.05] hover:text-white"
                                 >
                                   Edit
                                 </button>
 
                                 <button
                                   onClick={() => deleteTrade(trade.id)}
-                                  className="rounded-lg border border-rose-300/[0.08] px-2.5 py-1.5 text-xs text-rose-300/60 transition hover:bg-rose-300/[0.06] hover:text-rose-300"
+                                  className="rounded-md border border-rose-300/[0.08] px-2 py-1 text-[11px] text-rose-300/60 transition hover:bg-rose-300/[0.06] hover:text-rose-300"
                                 >
                                   Delete
                                 </button>
@@ -1343,9 +1343,9 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
               transition={{ duration: 0.25 }}
-              className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/[0.08] bg-[#0b0e13] shadow-2xl"
+              className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0b0e13] shadow-2xl"
             >
-              <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
+              <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-cyan-300/70">
                     Trading Journal
@@ -1364,7 +1364,7 @@ export default function Home() {
                 </button>
               </div>
 
-              <form onSubmit={saveTrade} className="space-y-5 p-6">
+              <form onSubmit={saveTrade} className="space-y-4 p-5">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
                     label="Pair"
@@ -1391,7 +1391,7 @@ export default function Home() {
                           type: e.target.value,
                         }))
                       }
-                      className="h-11 w-full rounded-xl border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none focus:border-cyan-300/40"
+                      className="h-10 w-full rounded-lg border border-white/[0.08] bg-black/20 px-3 text-sm text-white outline-none focus:border-cyan-300/40"
                     >
                       <option value="BUY">BUY</option>
                       <option value="SELL">SELL</option>
